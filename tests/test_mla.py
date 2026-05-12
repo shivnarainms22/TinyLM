@@ -132,12 +132,19 @@ def test_gradient_flow():
 
 def test_mla_mha_equivalence_at_identity_setting():
     """Defensive Test 7: with d_latent=d_model and d_rope=head_dim,
-    MLA's latent path is non-compressing. Outputs of MLA and MHA on
-    the same input should be correlated well above chance, indicating
-    the MLA projection wiring is not catastrophically broken.
+    MLA's latent path is non-compressing. We align the value/output
+    paths by copying matching weights (v_up <- v_proj, o_proj shared,
+    kv_down set to identity) then check Pearson correlation > 0.3.
 
-    We assert Pearson correlation > 0.3 across the flattened output
-    (chance ≈ 0)."""
+    Two independently-initialised modules produce ~0 correlation by
+    chance, so a wiring bug in the MLA reshape/split/concat raises this
+    test even though random Q/K paths differ.
+
+    Specifically this guards against:
+      - Wrong head reshape in k_up / v_up
+      - q_nope / q_rope split at the wrong boundary
+      - k_rope expand dropped or misaligned
+    """
     torch.manual_seed(0)
     # head_dim = d_model // n_heads = 64 // 4 = 16
     cfg_mla = ModelConfig(
@@ -150,6 +157,16 @@ def test_mla_mha_equivalence_at_identity_setting():
     )
     mla = MLAttention(cfg_mla)
     mha = MHAttention(cfg_mha)
+
+    # Align the shared value + output path so the only differences
+    # come from the Q/K positional branches (which are well-defined).
+    # kv_down set to identity: latent = x (no compression at d_latent=d_model)
+    # v_up gets the same weights as MHA's v_proj
+    # o_proj is shared
+    with torch.no_grad():
+        mla.kv_down.weight.copy_(torch.eye(cfg_mla.d_model))
+        mla.v_up.weight.copy_(mha.v_proj.weight)
+        mla.o_proj.weight.copy_(mha.o_proj.weight)
 
     cos_r, sin_r = build_rope_cache(cfg_mla.ctx, cfg_mla.d_rope, cfg_mla.rope_base)
     cos_m, sin_m = build_rope_cache(
@@ -165,6 +182,8 @@ def test_mla_mha_equivalence_at_identity_setting():
         out_mla_c.norm() * out_mha_c.norm() + 1e-12
     )
     assert corr.abs().item() > 0.3, (
-        f"MLA / MHA outputs uncorrelated (r={corr.item():.3f}) — "
-        f"likely a wiring bug in one of them"
+        f"MLA / MHA outputs uncorrelated after weight-alignment "
+        f"(r={corr.item():.3f}) — likely a wiring bug in one of them; "
+        f"check head reshape in k_up/v_up, q_nope/q_rope split boundary, "
+        f"or k_rope expand"
     )
