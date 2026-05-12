@@ -24,13 +24,14 @@ import argparse
 import os
 
 import numpy as np
-from datasets import load_dataset
-from transformers import AutoTokenizer
 
 SHARD_SIZE = 100_000_000  # 100M uint16 tokens per shard ≈ 200MB
 
 
 def tokenize_shards(split: str, out_dir: str, max_shards: int | None) -> None:
+    from datasets import load_dataset
+    from transformers import AutoTokenizer
+
     os.makedirs(out_dir, exist_ok=True)
 
     print(f"Loading tokenizer meta-llama/Llama-2-7b-hf ...")
