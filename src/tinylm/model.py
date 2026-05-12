@@ -230,3 +230,59 @@ class MLAttention(nn.Module):
         )
         out = out.transpose(1, 2).contiguous().view(B, T, self.d_model)
         return self.o_proj(out)
+
+
+class Block(nn.Module):
+    """Transformer block: Attn(RMSNorm(x)) + FFN(RMSNorm(x)), residual."""
+
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        self.norm1 = RMSNorm(cfg.d_model)
+        if cfg.attention == "mla":
+            self.attn = MLAttention(cfg)
+        else:
+            self.attn = MHAttention(cfg)
+        self.norm2 = RMSNorm(cfg.d_model)
+        self.ffn = SwiGLUFFN(cfg.d_model, cfg.ffn_hidden)
+
+    def forward(self, x, rope_cos, rope_sin):
+        x = x + self.attn(self.norm1(x), rope_cos, rope_sin)
+        x = x + self.ffn(self.norm2(x))
+        return x
+
+
+class TinyLM(nn.Module):
+    """The full 275M model: token embed + N blocks + final norm + LM head.
+
+    With `tie_weights=True`, the LM head shares weight with `tok_embed`."""
+
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        self.cfg = cfg
+        self.tok_embed = nn.Embedding(cfg.vocab_size, cfg.d_model)
+        self.blocks = nn.ModuleList(
+            [Block(cfg) for _ in range(cfg.n_layers)]
+        )
+        self.final_norm = RMSNorm(cfg.d_model)
+        # RoPE cache: MLA uses d_rope, MHA uses head_dim
+        rope_head_dim = (
+            cfg.d_rope
+            if cfg.attention == "mla"
+            else cfg.d_model // cfg.n_heads
+        )
+        cos, sin = build_rope_cache(cfg.ctx, rope_head_dim, cfg.rope_base)
+        self.register_buffer("rope_cos", cos, persistent=False)
+        self.register_buffer("rope_sin", sin, persistent=False)
+
+        if not cfg.tie_weights:
+            self.lm_head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
+
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        """tokens: (B, T) -> logits (B, T, vocab_size)."""
+        h = self.tok_embed(tokens)
+        for blk in self.blocks:
+            h = blk(h, self.rope_cos, self.rope_sin)
+        h = self.final_norm(h)
+        if self.cfg.tie_weights:
+            return h @ self.tok_embed.weight.T
+        return self.lm_head(h)

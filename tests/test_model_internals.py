@@ -92,3 +92,18 @@ def test_mha_shape_and_causal():
     x2[:, 5, :] += 10.0
     out2 = attn(x2, cos, sin)
     assert torch.allclose(out[:, :5, :], out2[:, :5, :], atol=1e-5)
+
+
+from tinylm import TinyLM
+
+
+def test_tinylm_forward_smoke():
+    """TinyLM produces logits of shape (B, T, vocab_size)."""
+    cfg = ModelConfig(
+        n_layers=2, d_model=64, n_heads=4, d_latent=32, d_rope=8,
+        ffn_hidden=128, ctx=32, vocab_size=128, attention="mla",
+    )
+    model = TinyLM(cfg)
+    tokens = torch.randint(0, cfg.vocab_size, (2, 16))
+    logits = model(tokens)
+    assert logits.shape == (2, 16, cfg.vocab_size)
