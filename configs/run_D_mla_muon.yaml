@@ -1,0 +1,46 @@
+# TinyLM — Run D (MLA + Muon) — Toy run (1B tokens ≈ 1000 steps)
+#
+# For Phase 4 full run: set total_steps: 20000 and warmup_steps: 2000
+# and re-run tokenize_shards.py without --max-shards.
+run_name: run_D_toy
+
+# Attention variant (locked — do not change between ablation runs without
+# updating run_name and creating a new config)
+attention: mla
+
+# Model architecture — LOCKED from docs/ablation_plan.md
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+# Data
+shard_dir: data/shards
+batch_size: 512
+seq_len: 2048
+
+# Training schedule (toy run: 1000 steps ≈ 1B tokens)
+total_steps: 1000
+warmup_steps: 100
+
+# Optimizer hyperparameters (locked from ablation_plan.md — Run D uses Muon)
+lr_muon: 0.02
+lr_adamw: 0.001
+weight_decay: 0.1
+grad_clip: 1.0
+
+# Logging
+log_every: 10
+save_every: 100
+wandb_project: tinylm
+
+# Set to a checkpoint path to resume (e.g. checkpoints/step_00499.pt)
+resume_from: null
+
+# Enable torch.compile on A100 for ~20% speedup
+compile: true
