@@ -187,3 +187,33 @@ def test_mla_mha_equivalence_at_identity_setting():
         f"check head reshape in k_up/v_up, q_nope/q_rope split boundary, "
         f"or k_rope expand"
     )
+
+
+def test_kv_cache_shape_incremental():
+    """Defensive Test 8: when running token-at-a-time, the per-layer
+    cached tensor must have last-dim width (d_latent + d_rope), NOT
+    (n_heads * head_dim). This is what produces the 3.5× KV-cache
+    reduction headline in Phase 5."""
+    cfg = _small_cfg()
+    mla = MLAttention(cfg)
+    cos, sin = build_rope_cache(cfg.ctx, cfg.d_rope, cfg.rope_base)
+
+    # Feed one token at a time, accumulating cache.
+    cache = None
+    for t in range(4):
+        x_t = torch.randn(1, 1, cfg.d_model)
+        out_t, cache = mla.forward_with_cache(
+            x_t, cos, sin, cache=cache, pos=t
+        )
+        assert out_t.shape == (1, 1, cfg.d_model)
+
+    # Cache is a tuple (latent_cache, k_rope_cache)
+    latent_cache, k_rope_cache = cache
+    assert latent_cache.shape[-1] == cfg.d_latent
+    assert k_rope_cache.shape[-1] == cfg.d_rope
+    # Time dim accumulates correctly
+    assert latent_cache.shape[-2] == 4
+    assert k_rope_cache.shape[-2] == 4
+    # Critically: cache width is NOT n_heads * head_dim
+    full_kv_width = cfg.n_heads * (cfg.d_model // cfg.n_heads)
+    assert latent_cache.shape[-1] != full_kv_width

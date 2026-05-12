@@ -231,6 +231,78 @@ class MLAttention(nn.Module):
         out = out.transpose(1, 2).contiguous().view(B, T, self.d_model)
         return self.o_proj(out)
 
+    def forward_with_cache(
+        self,
+        x: torch.Tensor,
+        rope_cos: torch.Tensor,
+        rope_sin: torch.Tensor,
+        cache: tuple[torch.Tensor, torch.Tensor] | None,
+        pos: int,
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+        """Incremental forward for one or more new tokens.
+
+        cache: (latent_cache, k_rope_cache) from previous step, each
+            shaped (B, T_past, d_latent) and (B, T_past, d_rope), or
+            None for the first call.
+        pos: absolute position of the first new token.
+
+        Returns (output, new_cache). Cache width is (d_latent + d_rope)
+        per token — the source of MLA's KV-cache memory advantage.
+        """
+        B, T_new, _ = x.shape
+        H, D, R = self.n_heads, self.head_dim, self.d_rope
+
+        # Compact representations for new tokens
+        new_latent = self.kv_norm(self.kv_down(x))   # (B, T_new, d_latent)
+        new_k_rope_pre = self.k_rope_proj(x)          # (B, T_new, d_rope)
+
+        # Append to cache
+        if cache is None:
+            latent_cache = new_latent
+            k_rope_cache = new_k_rope_pre
+        else:
+            latent_prev, k_rope_prev = cache
+            latent_cache = torch.cat([latent_prev, new_latent], dim=1)
+            k_rope_cache = torch.cat([k_rope_prev, new_k_rope_pre], dim=1)
+        T_total = latent_cache.shape[1]
+
+        # Expand cache to per-head K_nope and V
+        k_nope = self.k_up(latent_cache).view(B, T_total, H, D).transpose(1, 2)
+        v = self.v_up(latent_cache).view(B, T_total, H, D).transpose(1, 2)
+
+        # Apply RoPE to full k_rope cache at absolute positions
+        cos_r = rope_cos[:T_total, :R]
+        sin_r = rope_sin[:T_total, :R]
+        k_rope = k_rope_cache.view(B, T_total, 1, R).transpose(1, 2)
+        k_rope = k_rope.expand(B, H, T_total, R)
+        k_rope = apply_rope(k_rope, cos_r, sin_r)
+
+        # Q for new tokens only
+        q = self.q_proj(x).view(B, T_new, H, D + R)
+        q_nope, q_rope = q.split([D, R], dim=-1)
+        q_nope = q_nope.transpose(1, 2)
+        q_rope = q_rope.transpose(1, 2)
+        cos_q = rope_cos[pos:pos + T_new, :R]
+        sin_q = rope_sin[pos:pos + T_new, :R]
+        q_rope = apply_rope(q_rope, cos_q, sin_q)
+
+        q_full = torch.cat([q_nope, q_rope], dim=-1)
+        k_full = torch.cat([k_nope, k_rope], dim=-1)
+
+        # Causal mask: new token at abs pos `pos+i` can attend to cache
+        # positions [0, pos+i] inclusive.
+        attn_mask = torch.ones(
+            T_new, T_total, dtype=torch.bool, device=x.device
+        )
+        for i in range(T_new):
+            attn_mask[i, pos + i + 1:] = False
+
+        out = F.scaled_dot_product_attention(
+            q_full, k_full, v, attn_mask=attn_mask
+        )
+        out = out.transpose(1, 2).contiguous().view(B, T_new, self.d_model)
+        return self.o_proj(out), (latent_cache, k_rope_cache)
+
 
 class Block(nn.Module):
     """Transformer block: Attn(RMSNorm(x)) + FFN(RMSNorm(x)), residual."""
