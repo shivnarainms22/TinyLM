@@ -135,3 +135,98 @@ class MHAttention(nn.Module):
         out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         out = out.transpose(1, 2).contiguous().view(B, T, self.d_model)
         return self.o_proj(out)
+
+
+class MLAttention(nn.Module):
+    """Multi-head Latent Attention (DeepSeek-V2, simplified dense).
+
+    Ported from the DeepSeek-V2 reference (HuggingFace transformers,
+    MIT licensed). Aggressively stripped: no expert routing, no YARN
+    scaling, no q-LoRA. Decoupled RoPE: positional info is carried
+    only by a small `d_rope`-wide projection, NOT by the full latent
+    KV path. Getting this wrong yields a model that trains but has
+    broken position encoding (PDF Phase 1 Step 2 callout).
+
+    KV path:
+        x -> kv_down (d_model -> d_latent) -> [LATENT, no RoPE]
+        x -> k_rope_proj (d_model -> d_rope) -> [RoPE applied here]
+
+    Q path:
+        x -> q_proj (d_model -> n_heads*(d_head + d_rope))
+            split into [q_nope (no RoPE), q_rope (RoPE applied)]
+
+    Inference cache stores per-token (LATENT, K_ROPE) of total width
+    `d_latent + d_rope`, NOT `n_heads * d_head`. That is the source
+    of the KV-compression ratio claimed in the Phase 5 headline.
+    """
+
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        assert cfg.d_model % cfg.n_heads == 0
+        self.n_heads = cfg.n_heads
+        self.head_dim = cfg.d_model // cfg.n_heads
+        self.d_model = cfg.d_model
+        self.d_latent = cfg.d_latent
+        self.d_rope = cfg.d_rope
+
+        # Q: split per head into (head_dim no-rope) + (d_rope rope)
+        self.q_proj = nn.Linear(
+            cfg.d_model,
+            cfg.n_heads * (self.head_dim + cfg.d_rope),
+            bias=False,
+        )
+        # KV down-projection to the latent
+        self.kv_down = nn.Linear(cfg.d_model, cfg.d_latent, bias=False)
+        # Latent norm (DeepSeek-V2 applies RMSNorm on the latent)
+        self.kv_norm = RMSNorm(cfg.d_latent)
+        # K-rope projection (single-head, broadcast across heads)
+        self.k_rope_proj = nn.Linear(cfg.d_model, cfg.d_rope, bias=False)
+        # Up-projections from latent to per-head K_nope and V
+        self.k_up = nn.Linear(
+            cfg.d_latent, cfg.n_heads * self.head_dim, bias=False
+        )
+        self.v_up = nn.Linear(
+            cfg.d_latent, cfg.n_heads * self.head_dim, bias=False
+        )
+        # Output projection
+        self.o_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        rope_cos: torch.Tensor,
+        rope_sin: torch.Tensor,
+    ) -> torch.Tensor:
+        B, T, _ = x.shape
+        H, D, R = self.n_heads, self.head_dim, self.d_rope
+
+        # Q: (B, T, H*(D+R)) -> split
+        q = self.q_proj(x).view(B, T, H, D + R)
+        q_nope, q_rope = q.split([D, R], dim=-1)
+        # (B, H, T, D) and (B, H, T, R)
+        q_nope = q_nope.transpose(1, 2)
+        q_rope = q_rope.transpose(1, 2)
+
+        # KV latent + rope branch
+        latent = self.kv_norm(self.kv_down(x))          # (B, T, d_latent)
+        k_nope = self.k_up(latent).view(B, T, H, D).transpose(1, 2)
+        v = self.v_up(latent).view(B, T, H, D).transpose(1, 2)
+        k_rope = self.k_rope_proj(x).view(B, T, 1, R).transpose(1, 2)
+        # broadcast k_rope to all heads
+        k_rope = k_rope.expand(B, H, T, R)
+
+        # Apply RoPE only on the rope branches — slice to d_rope width
+        cos_r = rope_cos[:T, :R]
+        sin_r = rope_sin[:T, :R]
+        q_rope = apply_rope(q_rope, cos_r, sin_r)
+        k_rope = apply_rope(k_rope, cos_r, sin_r)
+
+        # Concatenate to form full Q and K of width D+R
+        q_full = torch.cat([q_nope, q_rope], dim=-1)    # (B, H, T, D+R)
+        k_full = torch.cat([k_nope, k_rope], dim=-1)
+
+        out = F.scaled_dot_product_attention(
+            q_full, k_full, v, is_causal=True
+        )
+        out = out.transpose(1, 2).contiguous().view(B, T, self.d_model)
+        return self.o_proj(out)
