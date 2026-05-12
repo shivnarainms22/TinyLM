@@ -32,31 +32,31 @@ def test_batch_shape(tmp_path):
 
 
 def test_shard_wrapping(tmp_path):
-    """After exhausting both shards, loader wraps to shard 0.
+    """After exhausting both shards, loader wraps to shard 0 position 0.
 
-    We verify that the token at position 0 of the wrapped batch equals the
-    token at position 0 of the very first batch (same shard, same position).
+    tokens_per_shard (90) is a multiple of tokens_per_batch (18) so the
+    wrap boundary falls exactly at position 0 of shard 0.
     """
     from tinylm.data import ShardLoader
 
     batch_size = 2
     seq_len = 8
-    tokens_per_shard = 200  # small so we exhaust quickly
+    tokens_per_shard = 90  # 5 batches per shard; total = 180 = exactly 10 batches
 
     shard_dir = _make_shards(tmp_path, n_shards=2, tokens_per_shard=tokens_per_shard)
     loader = ShardLoader(shard_dir, batch_size=batch_size, seq_len=seq_len)
 
     first_batch = loader.next_batch().clone()
 
-    # Drain both shards. Total tokens needed per batch: batch_size * (seq_len+1) = 18.
-    # Total tokens across 2 shards: 400. Steps to exhaust: 400 // 18 = 22 full batches.
-    total_tokens = tokens_per_shard * 2
-    tokens_per_batch = batch_size * (seq_len + 1)
-    steps_to_exhaust = total_tokens // tokens_per_batch + 2  # +2 to ensure wrap
+    # Exhaust both shards (9 more batches = 162 tokens) — total 10 batches = 180 tokens
+    tokens_per_batch = batch_size * (seq_len + 1)  # = 18
+    total_tokens = tokens_per_shard * 2             # = 180
+    assert total_tokens % tokens_per_batch == 0, "tokens_per_shard must be multiple of tokens_per_batch"
+    steps_to_exhaust = total_tokens // tokens_per_batch - 1  # = 9
     for _ in range(steps_to_exhaust):
         loader.next_batch()
 
-    # Next batch should start from shard 0 position 0 again.
+    # Next batch wraps to shard 0 position 0.
     wrapped_batch = loader.next_batch()
     assert wrapped_batch[0, 0].item() == first_batch[0, 0].item(), (
         f"After wrapping, first token {wrapped_batch[0, 0].item()} != "
