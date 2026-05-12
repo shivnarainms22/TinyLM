@@ -81,3 +81,16 @@ def apply_rope(
         cos = cos.unsqueeze(0)
         sin = sin.unsqueeze(0)
     return (x * cos) + (_rotate_half(x) * sin)
+
+
+class SwiGLUFFN(nn.Module):
+    """SwiGLU FFN as used in Llama/TinyLlama: down(silu(gate(x)) * up(x))."""
+
+    def __init__(self, d_model: int, ffn_hidden: int):
+        super().__init__()
+        self.gate = nn.Linear(d_model, ffn_hidden, bias=False)
+        self.up = nn.Linear(d_model, ffn_hidden, bias=False)
+        self.down = nn.Linear(ffn_hidden, d_model, bias=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.down(F.silu(self.gate(x)) * self.up(x))

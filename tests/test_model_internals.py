@@ -3,7 +3,13 @@ useful while building model.py."""
 
 import torch
 
-from tinylm.model import ModelConfig, RMSNorm, apply_rope, build_rope_cache
+from tinylm.model import (
+    ModelConfig,
+    RMSNorm,
+    apply_rope,
+    build_rope_cache,
+    SwiGLUFFN,
+)
 
 
 def test_model_config_defaults_lock():
@@ -55,3 +61,12 @@ def test_apply_rope_position_zero_is_identity():
     cos, sin = build_rope_cache(seq_len=1, head_dim=32, base=10000.0)
     y = apply_rope(x, cos, sin)
     assert torch.allclose(x, y, atol=1e-6)
+
+
+def test_swiglu_ffn_shape_and_no_bias():
+    ffn = SwiGLUFFN(d_model=64, ffn_hidden=176)
+    x = torch.randn(2, 8, 64)
+    y = ffn(x)
+    assert y.shape == (2, 8, 64)
+    for name, p in ffn.named_parameters():
+        assert "bias" not in name, f"unexpected bias param: {name}"
