@@ -8,7 +8,7 @@ training run."""
 
 import torch
 
-from tinylm.model import ModelConfig, MLAttention, build_rope_cache
+from tinylm.model import ModelConfig, MLAttention, MHAttention, TinyLM, build_rope_cache
 
 
 def _small_cfg(**overrides) -> ModelConfig:
@@ -90,4 +90,81 @@ def test_rope_decoupling():
     assert not torch.allclose(out_full, out_no_rope, atol=1e-4), (
         "Zeroing RoPE branches did not change output — positional "
         "information is leaking through the latent path."
+    )
+
+
+def test_total_param_count():
+    """Defensive Test 5: at the LOCKED Phase-4 dims, TinyLM-MLA must
+    have between 270M and 285M parameters. PDF Phase 4 Step 0 says to
+    verify this before any training run."""
+    cfg = ModelConfig(attention="mla")  # all locked defaults
+    model = TinyLM(cfg)
+    total = sum(p.numel() for p in model.parameters())
+    assert 270_000_000 <= total <= 285_000_000, (
+        f"param count {total:,} outside locked range "
+        f"[270M, 285M] — check ablation_plan.md before retuning"
+    )
+
+
+def test_gradient_flow():
+    """Defensive Test 6: after forward+backward, every learnable
+    parameter has a non-zero gradient. Catches frozen sub-modules
+    and dead branches."""
+    torch.manual_seed(0)
+    cfg = _small_cfg()
+    model = TinyLM(cfg)
+    tokens = torch.randint(0, cfg.vocab_size, (2, 8))
+    logits = model(tokens)
+    # Simple scalar loss tied to all params
+    loss = logits.float().pow(2).mean()
+    loss.backward()
+
+    zero_grad_params = []
+    for name, p in model.named_parameters():
+        if p.grad is None:
+            zero_grad_params.append(f"{name} (grad is None)")
+        elif p.grad.abs().max().item() == 0.0:
+            zero_grad_params.append(f"{name} (all zeros)")
+    assert not zero_grad_params, (
+        "Params with no gradient signal:\n  " + "\n  ".join(zero_grad_params)
+    )
+
+
+def test_mla_mha_equivalence_at_identity_setting():
+    """Defensive Test 7: with d_latent=d_model and d_rope=head_dim,
+    MLA's latent path is non-compressing. Outputs of MLA and MHA on
+    the same input should be correlated well above chance, indicating
+    the MLA projection wiring is not catastrophically broken.
+
+    We assert Pearson correlation > 0.3 across the flattened output
+    (chance ≈ 0)."""
+    torch.manual_seed(0)
+    # head_dim = d_model // n_heads = 64 // 4 = 16
+    cfg_mla = ModelConfig(
+        n_layers=1, d_model=64, n_heads=4, d_latent=64, d_rope=16,
+        ffn_hidden=128, ctx=32, vocab_size=128, attention="mla",
+    )
+    cfg_mha = ModelConfig(
+        n_layers=1, d_model=64, n_heads=4, d_latent=64, d_rope=16,
+        ffn_hidden=128, ctx=32, vocab_size=128, attention="mha",
+    )
+    mla = MLAttention(cfg_mla)
+    mha = MHAttention(cfg_mha)
+
+    cos_r, sin_r = build_rope_cache(cfg_mla.ctx, cfg_mla.d_rope, cfg_mla.rope_base)
+    cos_m, sin_m = build_rope_cache(
+        cfg_mha.ctx, cfg_mha.d_model // cfg_mha.n_heads, cfg_mha.rope_base
+    )
+    x = torch.randn(2, 16, 64)
+    out_mla = mla(x, cos_r, sin_r).detach().flatten()
+    out_mha = mha(x, cos_m, sin_m).detach().flatten()
+
+    out_mla_c = out_mla - out_mla.mean()
+    out_mha_c = out_mha - out_mha.mean()
+    corr = (out_mla_c @ out_mha_c) / (
+        out_mla_c.norm() * out_mha_c.norm() + 1e-12
+    )
+    assert corr.abs().item() > 0.3, (
+        f"MLA / MHA outputs uncorrelated (r={corr.item():.3f}) — "
+        f"likely a wiring bug in one of them"
     )
