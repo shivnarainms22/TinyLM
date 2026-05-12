@@ -1,0 +1,27 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.1, pytest-9.0.3, pluggy-1.6.0 -- D:\TinyLM\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\TinyLM
+configfile: pyproject.toml
+collecting ... collected 12 items
+
+tests/test_mla.py::test_kv_latent_compressed PASSED                      [  8%]
+tests/test_mla.py::test_output_shape_preserved PASSED                    [ 16%]
+tests/test_mla.py::test_causal_masking PASSED                            [ 25%]
+tests/test_mla.py::test_rope_decoupling PASSED                           [ 33%]
+tests/test_mla.py::test_total_param_count PASSED                         [ 41%]
+tests/test_mla.py::test_gradient_flow PASSED                             [ 50%]
+tests/test_mla.py::test_mla_mha_equivalence_at_identity_setting PASSED   [ 58%]
+tests/test_mla.py::test_kv_cache_shape_incremental PASSED                [ 66%]
+tests/test_muon.py::test_newton_schulz_orthogonalizes PASSED             [ 75%]
+tests/test_muon.py::test_non_square_transpose_trick PASSED               [ 83%]
+tests/test_muon.py::test_nesterov_momentum_applied PASSED                [ 91%]
+tests/test_muon.py::test_param_filter_excludes_embed_lm_head_norm_bias PASSED [100%]
+
+============================== warnings summary ===============================
+.venv\Lib\site-packages\torch\_subclasses\functional_tensor.py:307
+  D:\TinyLM\.venv\Lib\site-packages\torch\_subclasses\functional_tensor.py:307: UserWarning: Failed to initialize NumPy: No module named 'numpy' (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\pytorch\torch\csrc\utils\tensor_numpy.cpp:84.)
+    cpu = _conversion_method_template(device=torch.device("cpu"))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 12 passed, 1 warning in 3.46s ========================
