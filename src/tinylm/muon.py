@@ -94,18 +94,13 @@ class Muon(torch.optim.Optimizer):
                 if "momentum_buffer" not in state:
                     state["momentum_buffer"] = torch.zeros_like(g)
                 buf = state["momentum_buffer"]
-                # Update momentum buffer first: buf = mu*buf + g
                 buf.mul_(mu).add_(g)
-                # Nesterov look-ahead: v = mu*buf_orth + g
-                # Orthogonalize the momentum buffer for numerical stability
-                if buf.ndim >= 2:
-                    buf_orth = newton_schulz(buf, steps=ns_steps)
+                # Nesterov look-ahead: orthogonalize (mu*buf + g)
+                nesterov = mu * buf + g
+                if nesterov.ndim >= 2:
+                    nesterov = newton_schulz(nesterov, steps=ns_steps)
                     m, n = p.shape[-2], p.shape[-1]
-                    buf_orth = buf_orth * max(
+                    nesterov = nesterov * max(
                         1.0, (max(m, n) / min(m, n)) ** 0.5
                     )
-                    nesterov = mu * buf_orth + g
-                else:
-                    # For vectors/scalars, skip orthogonalization
-                    nesterov = buf
                 p.add_(nesterov, alpha=-lr)

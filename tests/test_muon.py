@@ -58,40 +58,43 @@ def test_non_square_transpose_trick():
 
 
 def test_nesterov_momentum_applied():
-    """One Muon step should differ from a vanilla-momentum update.
+    """Muon's step 2 direction incorporates the step-1 gradient via momentum.
 
-    We construct a setup where the gradient is fixed and the momentum
-    buffer is nonzero. Vanilla momentum applies `buf` directly;
-    Nesterov-style applies `mu*buf + grad`. The orthogonalized update
-    therefore differs.
+    NS normalizes its input direction, so a FIXED gradient gives the same
+    update at every step regardless of momentum scaling. To expose the
+    Nesterov effect we use two DIFFERENT gradients: the step-2 update must
+    mix in the step-1 gradient direction (through mu²*g1 in the Nesterov
+    direction mu*buf + g2), producing a different result from a fresh
+    single-step optimizer that has no accumulated momentum.
     """
     from tinylm.muon import Muon
 
     torch.manual_seed(2)
-    p_nesterov = torch.nn.Parameter(torch.zeros(8, 8))
-    p_vanilla = torch.nn.Parameter(torch.zeros(8, 8))
-    grad = torch.randn(8, 8)
+    g1 = torch.randn(8, 8)
+    g2 = torch.randn(8, 8)  # different direction from g1
 
-    # First step: bootstrap momentum buffer.
-    p_nesterov.grad = grad.clone()
-    opt = Muon([p_nesterov], lr=0.02, momentum=0.95)
+    # Train for 2 steps with different gradients.
+    p = torch.nn.Parameter(torch.zeros(8, 8))
+    opt = Muon([p], lr=0.02, momentum=0.95)
+    p.grad = g1.clone()
     opt.step()
-
-    # Second step: with the momentum buffer populated, Nesterov path
-    # diverges from a vanilla-momentum equivalent.
-    p_nesterov.grad = grad.clone()
-    snapshot_before = p_nesterov.detach().clone()
+    snap = p.detach().clone()
+    p.grad = g2.clone()
     opt.step()
-    delta_nesterov = p_nesterov.detach() - snapshot_before
+    delta_with_momentum = p.detach() - snap  # step-2 update
 
-    # Sanity: the update is nontrivial (not all zeros).
-    assert delta_nesterov.abs().max().item() > 1e-4
-    # And not equal to a plain `-lr * orthogonalize(grad)` step
-    # (that would mean Nesterov was bypassed).
-    naive = -0.02 * newton_schulz(grad, steps=5)
-    naive = naive * max(1, (8 / 8) ** 0.5)
-    assert not torch.allclose(delta_nesterov, naive, atol=1e-3), (
-        "Update matches naive grad-only step — Nesterov path is missing."
+    # Fresh single-step optimizer on only g2 (no accumulated momentum).
+    p_fresh = torch.nn.Parameter(snap.clone())
+    opt_fresh = Muon([p_fresh], lr=0.02, momentum=0.95)
+    p_fresh.grad = g2.clone()
+    opt_fresh.step()
+    delta_no_momentum = p_fresh.detach() - snap
+
+    # The two updates must differ because buf in the trained opt carries g1.
+    assert delta_with_momentum.abs().max().item() > 1e-4, "Update is zero"
+    assert not torch.allclose(delta_with_momentum, delta_no_momentum, atol=1e-4), (
+        "Step-2 update is identical to a fresh single-step update — "
+        "momentum buffer is not influencing the Nesterov direction."
     )
 
 
