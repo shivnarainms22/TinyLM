@@ -41,7 +41,26 @@ Phase 0 (current):
 - `scripts/eval_baseline.py` runs on Colab/Kaggle, not on this
   Windows machine.
 
-Phase 1+ commands will be added here as the tooling lands.
+Phase 1 (complete):
+- Unit tests: `pytest tests/ -v`
+
+Phase 2 (current — training stack):
+- All tests: `pytest tests/ -v`  (runs on Windows CPU, no GPU needed)
+- Data tests: `pytest tests/test_data.py -v`
+- Train tests: `pytest tests/test_train.py -v`
+- Verify config loads: `python -c "from tinylm.train import load_config; load_config('configs/run_D_mla_muon.yaml')"`
+
+RunPod toy run (A100-80GB):
+1. `bash scripts/setup_runpod.sh`  (installs deps, tokenizes 1B tokens ~30 min)
+2. `python -m tinylm.train configs/run_D_mla_muon.yaml`
+3. Kill at step ~500, set `resume_from` in YAML, rerun to test checkpoint resume.
+
+Go/no-go gates (must all be green before Phase 4):
+- tokens/sec ≥ 80,000
+- Loss at step 100 clearly decreasing
+- Loss at step 500 < 5.0
+- Zero NaN/Inf events
+- Checkpoint resume: loss continues from saved value
 
 ## Conventions
 
