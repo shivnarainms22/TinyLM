@@ -34,6 +34,33 @@ def newton_schulz(X: torch.Tensor, steps: int = 5) -> torch.Tensor:
     return Y.to(torch.float32)
 
 
+def partition_params(model: torch.nn.Module):
+    """Split parameters into (muon_group, adamw_group).
+
+    Muon group: 2D+ matrix weights in core transformer blocks (Q/K/V/O
+    projections, FFN). AdamW group: everything else — embeddings, LM
+    head, all norms, all biases.
+
+    Returns (matrix_params, scalar_params) as lists.
+    """
+    matrix_params = []
+    scalar_params = []
+    for name, p in model.named_parameters():
+        lname = name.lower()
+        is_excluded = (
+            p.ndim < 2
+            or "embed" in lname
+            or "lm_head" in lname
+            or "norm" in lname
+            or lname.endswith(".bias")
+        )
+        if is_excluded:
+            scalar_params.append(p)
+        else:
+            matrix_params.append(p)
+    return matrix_params, scalar_params
+
+
 class Muon(torch.optim.Optimizer):
     """Muon: MomentUm Orthogonalized by Newton-schulz.
 

@@ -93,3 +93,40 @@ def test_nesterov_momentum_applied():
     assert not torch.allclose(delta_nesterov, naive, atol=1e-3), (
         "Update matches naive grad-only step — Nesterov path is missing."
     )
+
+
+def test_param_filter_excludes_embed_lm_head_norm_bias():
+    """`partition_params` must route 1D / embedding / LM head / norm
+    weights into the AdamW group, not the Muon group.
+
+    Muon on the vocab embedding destroys learned token geometry (per
+    PDF Phase 1 Step 4). This filter is the guardrail.
+    """
+    from tinylm.muon import partition_params
+
+    class Toy(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.tok_embed = torch.nn.Embedding(100, 16)
+            self.attn_q = torch.nn.Linear(16, 16, bias=False)
+            self.norm = torch.nn.LayerNorm(16)
+            self.lm_head = torch.nn.Linear(16, 100, bias=True)
+
+    model = Toy()
+    matrix_group, scalar_group = partition_params(model)
+
+    matrix_ids = {id(p) for p in matrix_group}
+    scalar_ids = {id(p) for p in scalar_group}
+
+    # Only attn_q.weight should be in the Muon group
+    assert id(model.attn_q.weight) in matrix_ids
+    # Everything else must NOT be in the Muon group
+    assert id(model.tok_embed.weight) in scalar_ids
+    assert id(model.lm_head.weight) in scalar_ids
+    assert id(model.lm_head.bias) in scalar_ids
+    assert id(model.norm.weight) in scalar_ids
+    assert id(model.norm.bias) in scalar_ids
+    # No overlap, no leaks
+    assert matrix_ids.isdisjoint(scalar_ids)
+    total_params = sum(1 for _ in model.parameters())
+    assert len(matrix_ids) + len(scalar_ids) == total_params
