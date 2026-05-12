@@ -1,0 +1,16 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.1, pytest-9.0.3, pluggy-1.6.0 -- D:\TinyLM\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\TinyLM
+configfile: pyproject.toml
+collecting ... collected 7 items
+
+tests/test_data.py::test_batch_shape PASSED                              [ 14%]
+tests/test_data.py::test_shard_wrapping PASSED                           [ 28%]
+tests/test_data.py::test_state_dict_round_trip PASSED                    [ 42%]
+tests/test_train.py::test_cosine_lr_warmup PASSED                        [ 57%]
+tests/test_train.py::test_cosine_lr_decay PASSED                         [ 71%]
+tests/test_train.py::test_smoke_10_steps PASSED                          [ 85%]
+tests/test_train.py::test_checkpoint_resume_consistency PASSED           [100%]
+
+============================= 7 passed in 13.26s ==============================

@@ -50,7 +50,7 @@ schedule and benchmark suite.
 
 - [x] Phase 0 — Design lock-in
 - [x] Phase 1 — Architecture + unit tests (12/12 green, 274.6M params)
-- [ ] Phase 2 — Toy run (1B tokens, go/no-go gate)
+- [x] Phase 2 — Training stack (7/7 tests green); toy run pending RunPod
 - [ ] Phase 3 — Data pipeline
 - [ ] Phase 4 — Full training run + 4 ablations
 - [ ] Phase 5 — Eval + interview narrative
