@@ -3,7 +3,7 @@ useful while building model.py."""
 
 import torch
 
-from tinylm.model import ModelConfig, RMSNorm
+from tinylm.model import ModelConfig, RMSNorm, apply_rope, build_rope_cache
 
 
 def test_model_config_defaults_lock():
@@ -28,3 +28,30 @@ def test_rmsnorm_unit_norm():
     y = norm(x)
     rms = y.pow(2).mean(dim=-1).sqrt()
     assert torch.allclose(rms, torch.ones_like(rms), atol=1e-5)
+
+
+def test_rope_cache_shapes():
+    cos, sin = build_rope_cache(seq_len=128, head_dim=64, base=10000.0)
+    assert cos.shape == (128, 64)
+    assert sin.shape == (128, 64)
+
+
+def test_apply_rope_preserves_norm():
+    """RoPE is a rotation: it must preserve the L2 norm of each token."""
+    torch.manual_seed(0)
+    x = torch.randn(2, 4, 8, 64)  # (B, H, T, head_dim)
+    cos, sin = build_rope_cache(seq_len=8, head_dim=64, base=10000.0)
+    y = apply_rope(x, cos, sin)
+    assert y.shape == x.shape
+    assert torch.allclose(
+        x.pow(2).sum(dim=-1), y.pow(2).sum(dim=-1), atol=1e-5
+    )
+
+
+def test_apply_rope_position_zero_is_identity():
+    """At position 0, cos=1 and sin=0, so RoPE should be a no-op."""
+    torch.manual_seed(0)
+    x = torch.randn(1, 1, 1, 32)
+    cos, sin = build_rope_cache(seq_len=1, head_dim=32, base=10000.0)
+    y = apply_rope(x, cos, sin)
+    assert torch.allclose(x, y, atol=1e-6)
