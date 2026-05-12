@@ -101,3 +101,86 @@ def test_cosine_lr_decay():
     # Monotonically decreasing after warmup
     lrs = [cosine_lr(s, warmup, total, lr_max) for s in range(warmup, total + 1)]
     assert all(lrs[i] >= lrs[i + 1] for i in range(len(lrs) - 1)), "LR not monotone"
+
+
+# ── integration tests ───────────────────────────────────────────────────────
+
+def test_smoke_10_steps(tmp_path):
+    """10 training steps on a tiny model must produce finite, decreasing loss."""
+    from tinylm.train import train_step
+
+    shard_dir = _make_shards(tmp_path)
+    cfg = _tiny_cfg(shard_dir, total_steps=10)
+    model, muon, adamw, loader = _build_training_components(cfg)
+    model.train()
+
+    losses = []
+    for step in range(10):
+        tokens = loader.next_batch()
+        loss, grad_norm = train_step(model, tokens, muon, adamw, cfg, step)
+        losses.append(loss)
+        assert math.isfinite(loss), f"NaN/Inf loss at step {step}"
+        assert math.isfinite(grad_norm), f"NaN/Inf grad_norm at step {step}"
+
+    assert losses[-1] < losses[0], (
+        f"Loss did not decrease after 10 steps: "
+        f"{losses[0]:.4f} → {losses[-1]:.4f}"
+    )
+
+
+def test_checkpoint_resume_consistency(tmp_path):
+    """Steps 5–9 after a checkpoint resume must match a baseline straight run.
+
+    Determinism guarantee (CPU + manual_seed(42)):
+      Same model init + same data sequence + same optimizer state
+      → identical loss values after resume.
+    """
+    from tinylm.train import train_step, save_checkpoint, load_checkpoint
+    from tinylm.data import ShardLoader
+    from tinylm.model import ModelConfig, TinyLM
+    from tinylm.muon import Muon, partition_params
+
+    shard_dir = _make_shards(tmp_path)
+    cfg = _tiny_cfg(shard_dir, total_steps=10)
+
+    # ── Baseline: 10 straight steps ──────────────────────────────────────
+    model_b, muon_b, adamw_b, loader_b = _build_training_components(cfg)
+    model_b.train()
+    baseline_losses = []
+    for step in range(10):
+        tokens = loader_b.next_batch()
+        loss, _ = train_step(model_b, tokens, muon_b, adamw_b, cfg, step)
+        baseline_losses.append(loss)
+
+    # ── Interrupted: 5 steps, save, reload, 5 more ───────────────────────
+    model_i, muon_i, adamw_i, loader_i = _build_training_components(cfg)
+    model_i.train()
+    for step in range(5):
+        tokens = loader_i.next_batch()
+        train_step(model_i, tokens, muon_i, adamw_i, cfg, step)
+
+    ckpt_path = str(tmp_path / "step_00004.pt")
+    save_checkpoint(ckpt_path, 4, model_i, muon_i, adamw_i, loader_i, vars(cfg))
+
+    # Reload into fresh components
+    model_r, muon_r, adamw_r, loader_r = _build_training_components(cfg)
+    model_r.train()
+    ckpt = load_checkpoint(ckpt_path)
+    model_r.load_state_dict(ckpt["model"])
+    muon_r.load_state_dict(ckpt["muon"])
+    adamw_r.load_state_dict(ckpt["adamw"])
+    loader_r.load_state_dict(ckpt["loader"])
+
+    resumed_losses = []
+    for step in range(5, 10):
+        tokens = loader_r.next_batch()
+        loss, _ = train_step(model_r, tokens, muon_r, adamw_r, cfg, step)
+        resumed_losses.append(loss)
+
+    # Steps 5–9 must match baseline steps 5–9 exactly (CPU is deterministic).
+    for i, (bl, rl) in enumerate(zip(baseline_losses[5:], resumed_losses)):
+        assert abs(bl - rl) < 1e-4, (
+            f"Step {5 + i}: baseline loss {bl:.6f} vs resumed loss {rl:.6f} "
+            f"(diff {abs(bl - rl):.2e}) — checkpoint resume is not reproducing "
+            f"the training trajectory"
+        )
