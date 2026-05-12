@@ -70,3 +70,25 @@ def test_swiglu_ffn_shape_and_no_bias():
     assert y.shape == (2, 8, 64)
     for name, p in ffn.named_parameters():
         assert "bias" not in name, f"unexpected bias param: {name}"
+
+
+from tinylm.model import MHAttention
+
+
+def test_mha_shape_and_causal():
+    """MHA preserves shape and respects causal masking."""
+    torch.manual_seed(0)
+    cfg = ModelConfig(d_model=64, n_heads=4, ctx=16)
+    attn = MHAttention(cfg)
+    cos, sin = build_rope_cache(
+        seq_len=16, head_dim=cfg.d_model // cfg.n_heads, base=cfg.rope_base
+    )
+    x = torch.randn(2, 16, 64)
+    out = attn(x, cos, sin)
+    assert out.shape == (2, 16, 64)
+
+    # Causal: perturb position 5; positions 0..4 unchanged.
+    x2 = x.clone()
+    x2[:, 5, :] += 10.0
+    out2 = attn(x2, cos, sin)
+    assert torch.allclose(out[:, :5, :], out2[:, :5, :], atol=1e-5)

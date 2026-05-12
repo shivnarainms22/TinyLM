@@ -94,3 +94,44 @@ class SwiGLUFFN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.down(F.silu(self.gate(x)) * self.up(x))
+
+
+class MHAttention(nn.Module):
+    """Standard causal multi-head attention with RoPE on Q and K.
+
+    No biases, no dropout. Uses scaled_dot_product_attention with
+    is_causal=True for the causal mask.
+    """
+
+    def __init__(self, cfg: ModelConfig):
+        super().__init__()
+        assert cfg.d_model % cfg.n_heads == 0
+        self.n_heads = cfg.n_heads
+        self.head_dim = cfg.d_model // cfg.n_heads
+        self.d_model = cfg.d_model
+        self.q_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.k_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.v_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.o_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        rope_cos: torch.Tensor,
+        rope_sin: torch.Tensor,
+    ) -> torch.Tensor:
+        B, T, _ = x.shape
+        H, D = self.n_heads, self.head_dim
+        q = self.q_proj(x).view(B, T, H, D).transpose(1, 2)  # (B,H,T,D)
+        k = self.k_proj(x).view(B, T, H, D).transpose(1, 2)
+        v = self.v_proj(x).view(B, T, H, D).transpose(1, 2)
+
+        # Slice rope cache to current T
+        cos = rope_cos[:T]
+        sin = rope_sin[:T]
+        q = apply_rope(q, cos, sin)
+        k = apply_rope(k, cos, sin)
+
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        out = out.transpose(1, 2).contiguous().view(B, T, self.d_model)
+        return self.o_proj(out)
