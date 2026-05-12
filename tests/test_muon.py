@@ -33,3 +33,25 @@ def test_newton_schulz_orthogonalizes():
     assert off_diag.abs().max().item() < 0.15, (
         f"Off-diagonal max {off_diag.abs().max():.3f} — columns not orthogonal"
     )
+
+
+def test_non_square_transpose_trick():
+    """NS works for both tall (m>n) and wide (m<n) matrices."""
+    torch.manual_seed(1)
+    tall = torch.randn(512, 64)
+    wide = torch.randn(64, 512)
+
+    out_tall = newton_schulz(tall, steps=5)
+    out_wide = newton_schulz(wide, steps=5)
+
+    assert out_tall.shape == tall.shape, (
+        f"tall: expected {tall.shape}, got {out_tall.shape}"
+    )
+    assert out_wide.shape == wide.shape, (
+        f"wide: expected {wide.shape}, got {out_wide.shape}"
+    )
+    # Both should cluster singular values toward 1
+    svs_tall = torch.linalg.svdvals(out_tall.float())
+    svs_wide = torch.linalg.svdvals(out_wide.float())
+    assert svs_tall.min().item() > 0.5 and svs_tall.max().item() < 1.5
+    assert svs_wide.min().item() > 0.5 and svs_wide.max().item() < 1.5
