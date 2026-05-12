@@ -32,6 +32,7 @@ class ShardLoader:
         self._tokens: torch.Tensor = self._load(0)
 
     def _load(self, idx: int) -> torch.Tensor:
+        """Load shard idx from disk as int64 tensor."""
         data = np.load(self.shards[idx])
         return torch.from_numpy(data.astype(np.int64))
 
@@ -52,6 +53,7 @@ class ShardLoader:
             self.token_pos += take
             remaining -= take
 
+        # Pre-advance so the next next_batch() call always starts at a valid shard.
         if self.token_pos >= len(self._tokens):
             self.shard_idx = (self.shard_idx + 1) % len(self.shards)
             self._tokens = self._load(self.shard_idx)
@@ -60,9 +62,11 @@ class ShardLoader:
         return torch.cat(chunks).view(self.batch_size, self.seq_len + 1)
 
     def state_dict(self) -> dict:
+        """Return serializable loader position checkpoint."""
         return {"shard_idx": self.shard_idx, "token_pos": self.token_pos}
 
     def load_state_dict(self, state: dict) -> None:
+        """Restore loader position from a state_dict checkpoint."""
         self.shard_idx = state["shard_idx"]
         self.token_pos = state["token_pos"]
         self._tokens = self._load(self.shard_idx)
