@@ -55,7 +55,8 @@ Phase 1+ commands will be added here as the tooling lands.
 ## Non-negotiables
 
 - No code is written before its failing test (TDD per global rules).
-- The four MLA unit tests in PDF Phase 1 Step 3 are mandatory before
-  any training run.
+- The three MLA unit tests in PDF Phase 1 Step 3 (KV-compressed,
+  output-shape, causal-mask) are mandatory before any training run,
+  alongside the five defensive tests locked in the Phase 1 spec.
 - Checkpoint resume is tested in Phase 2 before any Phase 4 run.
 - The hypothesis in README.md is not edited to match results.
