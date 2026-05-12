@@ -35,7 +35,7 @@ Do not change without updating the spec doc first.
 
 ## How to run things
 
-Phase 0 (current):
+Phase 0 (complete):
 - All artifacts are docs or wrapper scripts. No `pip install`
   required locally.
 - `scripts/eval_baseline.py` runs on Colab/Kaggle, not on this

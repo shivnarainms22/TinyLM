@@ -33,6 +33,14 @@ def tokenize_shards(split: str, out_dir: str, max_shards: int | None) -> None:
     from transformers import AutoTokenizer
 
     os.makedirs(out_dir, exist_ok=True)
+    # Fail fast on permission issues before downloading the tokenizer.
+    test_path = os.path.join(out_dir, ".write_test")
+    try:
+        with open(test_path, "w") as f:
+            f.write("")
+        os.remove(test_path)
+    except OSError as e:
+        raise OSError(f"Output directory {out_dir!r} is not writable: {e}") from e
 
     print(f"Loading tokenizer meta-llama/Llama-2-7b-hf ...")
     tok = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
