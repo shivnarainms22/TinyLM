@@ -49,6 +49,8 @@ class TrainConfig:
     lr_adamw: float = 0.001
     weight_decay: float = 0.1
     grad_clip: float = 1.0
+    # Gradient accumulation (effective_batch = batch_size * grad_accum_steps)
+    grad_accum_steps: int = 1
     # Logging / checkpointing
     log_every: int = 10
     save_every: int = 100
@@ -204,9 +206,37 @@ def train(cfg: TrainConfig) -> None:
     tokens_logged = 0
 
     for step in range(start_step, cfg.total_steps):
-        tokens = loader.next_batch().to(device)
-        loss, grad_norm = train_step(model, tokens, muon, adamw, cfg, step)
-        tokens_logged += cfg.batch_size * cfg.seq_len
+        lr_m = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_muon)
+        lr_a = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_adamw)
+        for pg in muon.param_groups:
+            pg["lr"] = lr_m
+        for pg in adamw.param_groups:
+            pg["lr"] = lr_a
+
+        muon.zero_grad(set_to_none=True)
+        adamw.zero_grad(set_to_none=True)
+
+        loss_accum = 0.0
+        for _ in range(cfg.grad_accum_steps):
+            tokens = loader.next_batch().to(device)
+            logits = model(tokens[:, :-1])
+            loss = F.cross_entropy(
+                logits.reshape(-1, cfg.vocab_size),
+                tokens[:, 1:].reshape(-1),
+            ) / cfg.grad_accum_steps
+            if not loss.isfinite():
+                raise RuntimeError(
+                    f"Loss is non-finite at step {step} — training diverged."
+                )
+            loss.backward()
+            loss_accum += loss.item()
+
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip).item()
+        muon.step()
+        adamw.step()
+
+        loss = loss_accum
+        tokens_logged += cfg.batch_size * cfg.seq_len * cfg.grad_accum_steps
 
         if step % cfg.log_every == 0:
             t1 = time.perf_counter()

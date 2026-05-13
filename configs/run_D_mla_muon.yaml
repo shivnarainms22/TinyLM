@@ -21,7 +21,8 @@ tie_weights: true
 
 # Data
 shard_dir: data/shards
-batch_size: 256
+batch_size: 16          # micro-batch per forward pass (fits A100 VRAM)
+grad_accum_steps: 32   # effective batch = 16 * 32 = 512 (1.05B tokens / 1000 steps)
 seq_len: 2048
 
 # Training schedule (toy run: 1000 steps ≈ 1B tokens)
