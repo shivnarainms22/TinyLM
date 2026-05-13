@@ -350,6 +350,24 @@ class TinyLM(nn.Module):
         if not cfg.tie_weights:
             self.lm_head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
 
+        # GPT-2 / Llama / modded-nanogpt init: N(0, 0.02) for embeddings and
+        # linear weights, with residual-branch output projections scaled by
+        # 1/sqrt(2*n_layers) so the residual stream doesn't blow up at depth.
+        self.apply(self._init_weights)
+        residual_scale = (2 * cfg.n_layers) ** -0.5
+        for name, p in self.named_parameters():
+            if name.endswith("attn.o_proj.weight") or name.endswith("ffn.down.weight"):
+                p.data.mul_(residual_scale)
+
+    @staticmethod
+    def _init_weights(module: nn.Module) -> None:
+        if isinstance(module, nn.Linear):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         """tokens: (B, T) -> logits (B, T, vocab_size)."""
         from torch.utils.checkpoint import checkpoint

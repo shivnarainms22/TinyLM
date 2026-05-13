@@ -107,3 +107,74 @@ def test_tinylm_forward_smoke():
     tokens = torch.randint(0, cfg.vocab_size, (2, 16))
     logits = model(tokens)
     assert logits.shape == (2, 16, cfg.vocab_size)
+
+
+import math
+import torch.nn.functional as F
+
+
+def _small_cfg(attention: str) -> ModelConfig:
+    return ModelConfig(
+        n_layers=4, d_model=128, n_heads=4, d_latent=64, d_rope=16,
+        ffn_hidden=256, ctx=64, vocab_size=1024, attention=attention,
+    )
+
+
+def _init_loss(cfg: ModelConfig, seed: int = 0) -> float:
+    """CE loss of an untrained model on random tokens with INDEPENDENT
+    random labels. Independent labels are required: with tied embeddings,
+    using input tokens as their own targets lets the residual stream
+    leak an identity bias and the test under-reports loss.
+    """
+    torch.manual_seed(seed)
+    model = TinyLM(cfg).eval()
+    tokens = torch.randint(0, cfg.vocab_size, (4, 32))
+    labels = torch.randint(0, cfg.vocab_size, (4, 32))
+    with torch.no_grad():
+        logits = model(tokens)
+    return F.cross_entropy(
+        logits.view(-1, cfg.vocab_size), labels.view(-1)
+    ).item()
+
+
+def test_init_loss_near_uniform_mla():
+    """Untrained MLA model on random tokens with random labels must give
+    CE ≈ ln(vocab_size). Step 0 loss should match a uniform-output prior.
+    Caught the N(0,1) embedding default + missing residual scaling.
+    """
+    cfg = _small_cfg("mla")
+    loss = _init_loss(cfg)
+    expected = math.log(cfg.vocab_size)  # ≈ 6.93 for vocab=1024
+    assert abs(loss - expected) < 0.5, (
+        f"init loss {loss:.3f} far from ln(vocab)={expected:.3f}; "
+        f"check model init (embedding/linear std, residual scaling)"
+    )
+
+
+def test_init_loss_near_uniform_mha():
+    """Same check for the MHA variant (covers run_A / run_C ablations)."""
+    cfg = _small_cfg("mha")
+    loss = _init_loss(cfg)
+    expected = math.log(cfg.vocab_size)
+    assert abs(loss - expected) < 0.5, (
+        f"init loss {loss:.3f} far from ln(vocab)={expected:.3f}"
+    )
+
+
+def test_init_logits_bounded():
+    """Initial logits must have O(1) std, not O(100).
+
+    Catches the case where embeddings or LM-head weights have unit-scale
+    init: logits = h @ embed.T then has std ~ sqrt(d_model), softmax is
+    razor-sharp on a random token, and CE blows up.
+    """
+    torch.manual_seed(0)
+    cfg = _small_cfg("mla")
+    model = TinyLM(cfg).eval()
+    tokens = torch.randint(0, cfg.vocab_size, (2, 32))
+    with torch.no_grad():
+        logits = model(tokens)
+    assert logits.std().item() < 3.0, (
+        f"initial logits std {logits.std().item():.2f} too large; "
+        f"embedding/LM-head init is likely unit-scale instead of ~0.02"
+    )
