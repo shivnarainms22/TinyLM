@@ -21,8 +21,8 @@ tie_weights: true
 
 # Data
 shard_dir: data/shards
-batch_size: 64          # micro-batch; BF16 keeps activation memory ~50GB
-grad_accum_steps: 8    # effective batch = 64 * 8 = 512 (1.05B tokens / 1000 steps)
+batch_size: 32          # micro-batch; largest that fits compiled BF16 on A100-80GB
+grad_accum_steps: 16   # effective batch = 32 * 16 = 512 (1.05B tokens / 1000 steps)
 seq_len: 2048
 
 # Training schedule (toy run: 1000 steps ≈ 1B tokens)
