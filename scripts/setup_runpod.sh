@@ -32,7 +32,7 @@ if [ -z "$HF_TOKEN" ]; then
     echo "ERROR: HF_TOKEN is not set. Export it before running this script."
     exit 1
 fi
-huggingface-cli login --token "$HF_TOKEN"
+hf auth login --token "$HF_TOKEN"
 
 echo "=== Creating output directories ==="
 mkdir -p "$REPO/data/shards"
