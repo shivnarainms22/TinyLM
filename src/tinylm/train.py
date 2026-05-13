@@ -159,6 +159,7 @@ def train(cfg: TrainConfig) -> None:
     """Full training loop with WandB logging and checkpointing."""
     import wandb  # lazy import — tests never call train()
 
+    torch.set_float32_matmul_precision("high")  # enable TF32 tensor cores on A100
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model_cfg = ModelConfig(
