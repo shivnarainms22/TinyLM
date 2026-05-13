@@ -33,6 +33,7 @@ class ModelConfig:
     tie_weights: bool = True
     rope_base: float = 10000.0
     attention: Literal["mha", "mla"] = "mla"
+    use_checkpoint: bool = False
 
 
 class RMSNorm(nn.Module):
@@ -351,9 +352,13 @@ class TinyLM(nn.Module):
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         """tokens: (B, T) -> logits (B, T, vocab_size)."""
+        from torch.utils.checkpoint import checkpoint
         h = self.tok_embed(tokens)
         for blk in self.blocks:
-            h = blk(h, self.rope_cos, self.rope_sin)
+            if self.cfg.use_checkpoint and self.training:
+                h = checkpoint(blk, h, self.rope_cos, self.rope_sin, use_reentrant=False)
+            else:
+                h = blk(h, self.rope_cos, self.rope_sin)
         h = self.final_norm(h)
         if self.cfg.tie_weights:
             return h @ self.tok_embed.weight.T

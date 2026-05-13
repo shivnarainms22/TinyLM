@@ -51,6 +51,8 @@ class TrainConfig:
     grad_clip: float = 1.0
     # Gradient accumulation (effective_batch = batch_size * grad_accum_steps)
     grad_accum_steps: int = 1
+    # Gradient checkpointing — trades compute for memory, enables larger micro-batch
+    grad_checkpoint: bool = False
     # Logging / checkpointing
     log_every: int = 10
     save_every: int = 100
@@ -169,6 +171,7 @@ def train(cfg: TrainConfig) -> None:
         d_latent=cfg.d_latent, d_rope=cfg.d_rope, ffn_hidden=cfg.ffn_hidden,
         ctx=cfg.ctx, vocab_size=cfg.vocab_size, tie_weights=cfg.tie_weights,
         attention=cfg.attention,
+        use_checkpoint=cfg.grad_checkpoint,
     )
     model = TinyLM(model_cfg).to(device)
     if cfg.compile and device == "cuda":

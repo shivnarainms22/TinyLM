@@ -21,8 +21,8 @@ tie_weights: true
 
 # Data
 shard_dir: data/shards
-batch_size: 16          # micro-batch per forward pass (fits A100 VRAM)
-grad_accum_steps: 32   # effective batch = 16 * 32 = 512 (1.05B tokens / 1000 steps)
+batch_size: 64          # micro-batch; grad checkpointing keeps activation memory ~12GB
+grad_accum_steps: 8    # effective batch = 64 * 8 = 512 (1.05B tokens / 1000 steps)
 seq_len: 2048
 
 # Training schedule (toy run: 1000 steps ≈ 1B tokens)
@@ -45,3 +45,6 @@ resume_from: null
 
 # Enable torch.compile on A100 for ~20% speedup
 compile: true
+# Gradient checkpointing: recomputes block activations during backward,
+# reduces activation memory from ~77GB to ~12GB, enabling batch_size=64
+grad_checkpoint: true
