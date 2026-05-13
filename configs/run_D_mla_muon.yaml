@@ -21,7 +21,7 @@ tie_weights: true
 
 # Data
 shard_dir: data/shards
-batch_size: 512
+batch_size: 16
 seq_len: 2048
 
 # Training schedule (toy run: 1000 steps ≈ 1B tokens)
