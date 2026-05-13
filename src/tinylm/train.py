@@ -51,6 +51,8 @@ class TrainConfig:
     grad_clip: float = 1.0
     # Gradient accumulation (effective_batch = batch_size * grad_accum_steps)
     grad_accum_steps: int = 1
+    # BF16 autocast — halves activation memory, enables larger micro-batch on A100
+    use_bf16: bool = False
     # Gradient checkpointing — trades compute for memory, enables larger micro-batch
     grad_checkpoint: bool = False
     # Logging / checkpointing
@@ -222,11 +224,12 @@ def train(cfg: TrainConfig) -> None:
         loss_accum = 0.0
         for _ in range(cfg.grad_accum_steps):
             tokens = loader.next_batch().to(device)
-            logits = model(tokens[:, :-1])
-            loss = F.cross_entropy(
-                logits.reshape(-1, cfg.vocab_size),
-                tokens[:, 1:].reshape(-1),
-            ) / cfg.grad_accum_steps
+            with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=cfg.use_bf16 and device == "cuda"):
+                logits = model(tokens[:, :-1])
+                loss = F.cross_entropy(
+                    logits.reshape(-1, cfg.vocab_size),
+                    tokens[:, 1:].reshape(-1),
+                ) / cfg.grad_accum_steps
             if not loss.isfinite():
                 raise RuntimeError(
                     f"Loss is non-finite at step {step} — training diverged."
