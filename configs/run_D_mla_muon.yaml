@@ -38,7 +38,7 @@ save_every: 500
 wandb_project: tinylm
 
 # Set to a checkpoint path to resume (e.g. checkpoints/step_00499.pt)
-resume_from: checkpoints/step_00699.pt
+resume_from: null
 
 # Enable torch.compile on A100 for ~20% speedup
 compile: true
