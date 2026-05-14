@@ -1,8 +1,5 @@
-# TinyLM — Run D (MLA + Muon) — Toy run (1B tokens ≈ 1000 steps)
-#
-# For Phase 4 full run: set total_steps: 20000 and warmup_steps: 2000
-# and re-run tokenize_shards.py without --max-shards.
-run_name: run_D_toy
+# TinyLM — Run D (MLA + Muon) — Full run (20k steps)
+run_name: run_D_full
 
 # Attention variant (locked — do not change between ablation runs without
 # updating run_name and creating a new config)
@@ -25,9 +22,9 @@ batch_size: 32          # micro-batch; largest that fits compiled BF16 on A100-8
 grad_accum_steps: 16   # effective batch = 32 * 16 = 512 (1.05B tokens / 1000 steps)
 seq_len: 2048
 
-# Training schedule (toy run: 1000 steps ≈ 1B tokens)
-total_steps: 1000
-warmup_steps: 100
+# Training schedule (full run: 20k steps, data loops over 10 shards)
+total_steps: 20000
+warmup_steps: 2000
 
 # Optimizer hyperparameters (locked from ablation_plan.md — Run D uses Muon)
 lr_muon: 0.02
@@ -40,6 +37,7 @@ log_every: 10
 save_every: 100
 wandb_project: tinylm
 
+# Set to a checkpoint path to resume (e.g. checkpoints/step_00499.pt)
 # Set to a checkpoint path to resume (e.g. checkpoints/step_00499.pt)
 resume_from: null
 
