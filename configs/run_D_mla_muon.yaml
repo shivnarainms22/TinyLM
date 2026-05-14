@@ -34,12 +34,11 @@ grad_clip: 1.0
 
 # Logging
 log_every: 10
-save_every: 100
+save_every: 500
 wandb_project: tinylm
 
 # Set to a checkpoint path to resume (e.g. checkpoints/step_00499.pt)
-# Set to a checkpoint path to resume (e.g. checkpoints/step_00499.pt)
-resume_from: null
+resume_from: checkpoints/step_00699.pt
 
 # Enable torch.compile on A100 for ~20% speedup
 compile: true
