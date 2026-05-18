@@ -4,6 +4,8 @@ A 275M parameter small language model trained with Multi-head Latent
 Attention (MLA) and the Muon optimizer (Newton-Schulz orthogonalization),
 benchmarked against TinyLlama-1.1B.
 
+**Model on HuggingFace:** [Shiv-22/tinylm](https://huggingface.co/Shiv-22/tinylm)
+
 Reference plan: `250M_SLM_Implementation_Plan_revised.pdf` (repo root).
 
 ---
