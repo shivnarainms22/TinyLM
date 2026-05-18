@@ -52,7 +52,11 @@ def _load_model(ckpt_path: str, device: str) -> TinyLM:
             attention=c["attention"],
         )
     )
-    model.load_state_dict(ckpt["model"])
+    state = ckpt["model"]
+    # torch.compile wraps keys with "_orig_mod." prefix — strip it
+    if any(k.startswith("_orig_mod.") for k in state):
+        state = {k.removeprefix("_orig_mod."): v for k, v in state.items()}
+    model.load_state_dict(state)
     return model.to(device).eval()
 
 
