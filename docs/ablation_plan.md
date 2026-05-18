@@ -14,7 +14,7 @@ proves nothing — it is just a demo, not an experiment.
 
 ## Shared invariants (do NOT vary between runs)
 
-- Total tokens: 20B
+- Total tokens: 1B unique (20k steps, data loops ~21×)
 - Steps: 20000 (warmup 2000)
 - Batch size: 512 sequences × 2048 seq_len = ~1M tokens/step
 - Grad clip: 1.0

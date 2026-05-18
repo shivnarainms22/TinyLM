@@ -10,8 +10,8 @@ Reference plan: `250M_SLM_Implementation_Plan_revised.pdf` (repo root).
 
 ## Pinned Hypothesis
 
-> A 275M parameter model trained with MLA + Muon on 20B tokens of
-> FineWeb-Edu will achieve materially-better-than-random performance on
+> A 275M parameter model trained with MLA + Muon on 1B tokens of
+> FineWeb-Edu (20k steps, data repeated) will achieve materially-better-than-random performance on
 > HellaSwag, ARC-Easy, LAMBADA, and Winogrande, while demonstrating a
 > measurable KV-cache memory reduction at inference versus an equivalent
 > MHA baseline (Run A). Exact percentage targets are filled in
