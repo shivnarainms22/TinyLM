@@ -4,14 +4,14 @@
 **Baseline:** TinyLlama-1.1B-intermediate-step-1431k-3T, 1.1B params, 3T tokens  
 **Eval:** lm-eval v0.4.12, 0-shot
 
-| Benchmark | Metric | Run D (275M) | TinyLlama-1.1B | Delta |
-|---|---|---|---|---|
+| Benchmark | Metric | Run D (275M) | TinyLlama-1.1B (baseline) | Delta |
+|:---|:---:|:---:|:---:|:---:|
 | HellaSwag | acc | 32.4% | 59.1% | -26.7% |
 | HellaSwag | acc_norm | 37.1% | — | — |
-| ARC-Easy | acc | 53.8% | 55.7% | -1.9% |
+| ARC-Easy | acc | **53.8%** | 55.7% | **-1.9%** |
 | ARC-Easy | acc_norm | 48.4% | — | — |
 | LAMBADA | acc | 29.2% | 58.9% | -29.7% |
-| LAMBADA | perplexity | 58.8 | 6.85 | — |
+| LAMBADA | perplexity ↓ | 58.8 | 6.85 | — |
 | Winogrande | acc | 50.0% | 58.9% | -8.9% |
 | **Average (acc)** | | **41.3%** | **58.2%** | **-16.9%** |
 
