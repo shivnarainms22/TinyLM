@@ -67,7 +67,7 @@ class TinyLMEval(LM):
         device: str,
     ) -> None:
         super().__init__()
-        self.device = device
+        self._device = device
         self._batch_size = batch_size
         self._model = _load_model(checkpoint, device)
         self._tok = AutoTokenizer.from_pretrained(tokenizer_name)
@@ -131,7 +131,7 @@ class TinyLMEval(LM):
             for j, s in enumerate(seqs):
                 input_ids[j, : len(s)] = torch.tensor(s, dtype=torch.long)
 
-            input_ids = input_ids.to(self.device)
+            input_ids = input_ids.to(self._device)
             # model takes (B, T) -> (B, T, V); we feed all but the last token
             logits = self._model(input_ids[:, :-1]).float()  # (B, T-1, V)
             targets = input_ids[:, 1:]                        # (B, T-1)
