@@ -1,0 +1,54 @@
+{
+  "results": {
+    "hellaswag": {
+      "name": "hellaswag",
+      "alias": "hellaswag",
+      "sample_len": 10042,
+      "acc,none": 0.3240390360485959,
+      "acc_stderr,none": 0.004670581884781189,
+      "acc_norm,none": 0.3712407886875124,
+      "acc_norm_stderr,none": 0.004821492994082138
+    },
+    "arc_easy": {
+      "name": "arc_easy",
+      "alias": "arc_easy",
+      "sample_len": 2376,
+      "acc,none": 0.5382996632996633,
+      "acc_stderr,none": 0.01022963982061052,
+      "acc_norm,none": 0.48442760942760943,
+      "acc_norm_stderr,none": 0.010254806331961897
+    },
+    "lambada_openai": {
+      "name": "lambada_openai",
+      "alias": "lambada_openai",
+      "sample_len": 5153,
+      "perplexity,none": 58.824053937436,
+      "perplexity_stderr,none": 2.4903290234336866,
+      "acc,none": 0.291868814282942,
+      "acc_stderr,none": 0.00633377716821639
+    },
+    "winogrande": {
+      "name": "winogrande",
+      "alias": "winogrande",
+      "sample_len": 1267,
+      "acc,none": 0.4996053670086819,
+      "acc_stderr,none": 0.014052481306049516
+    }
+  },
+  "config": {
+    "model": "TinyLMEval",
+    "model_args": null,
+    "batch_size": null,
+    "device": "cuda",
+    "lm_eval_version": "0.4.12",
+    "checkpoint": "checkpoints/step_19999.pt",
+    "tokenizer": "meta-llama/Llama-2-7b-hf",
+    "training_steps": 20000,
+    "training_tokens_unique": "1B",
+    "training_epochs_approx": 21,
+    "final_loss": 2.2217,
+    "final_grad_norm": 0.09441,
+    "tokens_per_sec": 62599.48266,
+    "wandb_run": "https://wandb.ai/shivnarainms22-northeastern-university/tinylm/runs/dig7xsqf"
+  }
+}
