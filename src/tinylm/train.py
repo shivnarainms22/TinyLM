@@ -27,6 +27,8 @@ from tinylm.muon import Muon, partition_params
 class TrainConfig:
     # Identity
     run_name: str = "run"
+    # Optimizer mode: "muon" (matrix->Muon, scalar->AdamW) or "adamw" (all->AdamW)
+    optimizer: str = "muon"
     # Model (must match ModelConfig locked dims)
     attention: str = "mla"
     n_layers: int = 18
@@ -74,6 +76,31 @@ def load_config(path: str) -> TrainConfig:
     if unknown:
         raise ValueError(f"Unknown config keys: {sorted(unknown)}")
     return TrainConfig(**d)
+
+
+def build_optimizers(model: torch.nn.Module, cfg: TrainConfig):
+    """Return [(optimizer, lr_max), ...] based on cfg.optimizer.
+
+    "muon"  -> matrix params on Muon, scalar params on AdamW (two optimizers).
+    "adamw" -> all params on a single AdamW (runs A and B).
+    """
+    if cfg.optimizer == "muon":
+        matrix_params, scalar_params = partition_params(model)
+        muon = Muon(matrix_params, lr=cfg.lr_muon, momentum=0.95)
+        adamw = torch.optim.AdamW(
+            scalar_params, lr=cfg.lr_adamw,
+            weight_decay=cfg.weight_decay, betas=(0.9, 0.95),
+        )
+        return [(muon, cfg.lr_muon), (adamw, cfg.lr_adamw)]
+    if cfg.optimizer == "adamw":
+        adamw = torch.optim.AdamW(
+            model.parameters(), lr=cfg.lr_adamw,
+            weight_decay=cfg.weight_decay, betas=(0.9, 0.95),
+        )
+        return [(adamw, cfg.lr_adamw)]
+    raise ValueError(
+        f"Unknown optimizer mode: {cfg.optimizer!r} (expected 'muon' or 'adamw')"
+    )
 
 
 def cosine_lr(
