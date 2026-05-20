@@ -122,18 +122,20 @@ def save_checkpoint(
     path: str,
     step: int,
     model: torch.nn.Module,
-    muon: Muon,
-    adamw: torch.optim.Optimizer,
+    optimizers: list,
     loader: ShardLoader,
     config_dict: dict,
 ) -> None:
-    """Save full training state to a .pt checkpoint file."""
+    """Save full training state to a .pt checkpoint file.
+
+    `optimizers` is the list of (optimizer, lr_max) pairs from
+    build_optimizers(); their state is stored as an ordered list.
+    """
     torch.save(
         {
             "step": step,
             "model": model.state_dict(),
-            "muon": muon.state_dict(),
-            "adamw": adamw.state_dict(),
+            "optimizers": [opt.state_dict() for opt, _ in optimizers],
             "loader": loader.state_dict(),
             "config": config_dict,
         },
@@ -149,25 +151,21 @@ def load_checkpoint(path: str) -> dict:
 def train_step(
     model: torch.nn.Module,
     tokens: torch.Tensor,
-    muon: Muon,
-    adamw: torch.optim.Optimizer,
+    optimizers: list,
     cfg: TrainConfig,
     step: int,
 ) -> tuple[float, float]:
     """One training step. Returns (loss, grad_norm).
 
-    Updates LR, runs forward/backward, clips gradients, steps optimizers.
+    Updates LR, runs forward/backward, clips gradients, steps every optimizer
+    in `optimizers` (list of (optimizer, lr_max) pairs from build_optimizers()).
     Does NOT log to WandB — train() handles that.
     """
-    muon.zero_grad(set_to_none=True)
-    adamw.zero_grad(set_to_none=True)
-
-    lr_m = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_muon)
-    lr_a = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_adamw)
-    for pg in muon.param_groups:
-        pg["lr"] = lr_m
-    for pg in adamw.param_groups:
-        pg["lr"] = lr_a
+    for opt, lr_max in optimizers:
+        lr = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, lr_max)
+        for pg in opt.param_groups:
+            pg["lr"] = lr
+        opt.zero_grad(set_to_none=True)
 
     logits = model(tokens[:, :-1])
     loss = F.cross_entropy(
@@ -182,8 +180,8 @@ def train_step(
 
     loss.backward()
     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
-    muon.step()
-    adamw.step()
+    for opt, _ in optimizers:
+        opt.step()
 
     return loss.item(), grad_norm.item()
 
@@ -206,12 +204,7 @@ def train(cfg: TrainConfig) -> None:
     if cfg.compile and device == "cuda":
         model = torch.compile(model)
 
-    matrix_params, scalar_params = partition_params(model)
-    muon = Muon(matrix_params, lr=cfg.lr_muon, momentum=0.95)
-    adamw = torch.optim.AdamW(
-        scalar_params, lr=cfg.lr_adamw,
-        weight_decay=cfg.weight_decay, betas=(0.9, 0.95),
-    )
+    optimizers = build_optimizers(model, cfg)
 
     loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len)
 
@@ -219,8 +212,8 @@ def train(cfg: TrainConfig) -> None:
     if cfg.resume_from:
         ckpt = load_checkpoint(cfg.resume_from)
         model.load_state_dict(ckpt["model"])
-        muon.load_state_dict(ckpt["muon"])
-        adamw.load_state_dict(ckpt["adamw"])
+        for (opt, _), sd in zip(optimizers, ckpt["optimizers"]):
+            opt.load_state_dict(sd)
         loader.load_state_dict(ckpt["loader"])
         start_step = ckpt["step"] + 1
         print(f"Resumed from step {ckpt['step']}")
@@ -238,15 +231,11 @@ def train(cfg: TrainConfig) -> None:
     tokens_logged = 0
 
     for step in range(start_step, cfg.total_steps):
-        lr_m = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_muon)
-        lr_a = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_adamw)
-        for pg in muon.param_groups:
-            pg["lr"] = lr_m
-        for pg in adamw.param_groups:
-            pg["lr"] = lr_a
-
-        muon.zero_grad(set_to_none=True)
-        adamw.zero_grad(set_to_none=True)
+        for opt, lr_max in optimizers:
+            lr = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, lr_max)
+            for pg in opt.param_groups:
+                pg["lr"] = lr
+            opt.zero_grad(set_to_none=True)
 
         loss_accum = 0.0
         for _ in range(cfg.grad_accum_steps):
@@ -265,8 +254,8 @@ def train(cfg: TrainConfig) -> None:
             loss_accum += loss.item()
 
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip).item()
-        muon.step()
-        adamw.step()
+        for opt, _ in optimizers:
+            opt.step()
 
         loss = loss_accum
         tokens_logged += cfg.batch_size * cfg.seq_len * cfg.grad_accum_steps
@@ -297,7 +286,7 @@ def train(cfg: TrainConfig) -> None:
 
         if (step + 1) % cfg.save_every == 0 or step == cfg.total_steps - 1:
             ckpt_path = f"checkpoints/step_{step:05d}.pt"
-            save_checkpoint(ckpt_path, step, model, muon, adamw, loader, vars(cfg))
+            save_checkpoint(ckpt_path, step, model, optimizers, loader, vars(cfg))
 
     wandb.finish()
 

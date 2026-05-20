@@ -49,9 +49,9 @@ def _tiny_cfg(shard_dir: str, total_steps: int = 10):
 
 
 def _build_training_components(cfg):
-    """Return (model, muon, adamw, loader) for the given TrainConfig."""
+    """Return (model, optimizers, loader) for the given TrainConfig."""
     from tinylm.model import ModelConfig, TinyLM
-    from tinylm.muon import Muon, partition_params
+    from tinylm.train import build_optimizers
     from tinylm.data import ShardLoader
 
     torch.manual_seed(42)
@@ -62,14 +62,9 @@ def _build_training_components(cfg):
         attention=cfg.attention,
     )
     model = TinyLM(model_cfg)
-    matrix_params, scalar_params = partition_params(model)
-    muon = Muon(matrix_params, lr=cfg.lr_muon, momentum=0.95)
-    adamw = torch.optim.AdamW(
-        scalar_params, lr=cfg.lr_adamw,
-        weight_decay=cfg.weight_decay, betas=(0.9, 0.95),
-    )
+    optimizers = build_optimizers(model, cfg)
     loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len)
-    return model, muon, adamw, loader
+    return model, optimizers, loader
 
 
 # ── cosine_lr tests ─────────────────────────────────────────────────────────
@@ -111,13 +106,13 @@ def test_smoke_10_steps(tmp_path):
 
     shard_dir = _make_shards(tmp_path)
     cfg = _tiny_cfg(shard_dir, total_steps=10)
-    model, muon, adamw, loader = _build_training_components(cfg)
+    model, optimizers, loader = _build_training_components(cfg)
     model.train()
 
     losses = []
     for step in range(10):
         tokens = loader.next_batch()
-        loss, grad_norm = train_step(model, tokens, muon, adamw, cfg, step)
+        loss, grad_norm = train_step(model, tokens, optimizers, cfg, step)
         losses.append(loss)
         assert math.isfinite(loss), f"NaN/Inf loss at step {step}"
         assert math.isfinite(grad_norm), f"NaN/Inf grad_norm at step {step}"
@@ -136,45 +131,42 @@ def test_checkpoint_resume_consistency(tmp_path):
       → identical loss values after resume.
     """
     from tinylm.train import train_step, save_checkpoint, load_checkpoint
-    from tinylm.data import ShardLoader
-    from tinylm.model import ModelConfig, TinyLM
-    from tinylm.muon import Muon, partition_params
 
     shard_dir = _make_shards(tmp_path)
     cfg = _tiny_cfg(shard_dir, total_steps=10)
 
     # ── Baseline: 10 straight steps ──────────────────────────────────────
-    model_b, muon_b, adamw_b, loader_b = _build_training_components(cfg)
+    model_b, optimizers_b, loader_b = _build_training_components(cfg)
     model_b.train()
     baseline_losses = []
     for step in range(10):
         tokens = loader_b.next_batch()
-        loss, _ = train_step(model_b, tokens, muon_b, adamw_b, cfg, step)
+        loss, _ = train_step(model_b, tokens, optimizers_b, cfg, step)
         baseline_losses.append(loss)
 
     # ── Interrupted: 5 steps, save, reload, 5 more ───────────────────────
-    model_i, muon_i, adamw_i, loader_i = _build_training_components(cfg)
+    model_i, optimizers_i, loader_i = _build_training_components(cfg)
     model_i.train()
     for step in range(5):
         tokens = loader_i.next_batch()
-        train_step(model_i, tokens, muon_i, adamw_i, cfg, step)
+        train_step(model_i, tokens, optimizers_i, cfg, step)
 
     ckpt_path = str(tmp_path / "step_00004.pt")
-    save_checkpoint(ckpt_path, 4, model_i, muon_i, adamw_i, loader_i, vars(cfg))
+    save_checkpoint(ckpt_path, 4, model_i, optimizers_i, loader_i, vars(cfg))
 
     # Reload into fresh components
-    model_r, muon_r, adamw_r, loader_r = _build_training_components(cfg)
+    model_r, optimizers_r, loader_r = _build_training_components(cfg)
     model_r.train()
     ckpt = load_checkpoint(ckpt_path)
     model_r.load_state_dict(ckpt["model"])
-    muon_r.load_state_dict(ckpt["muon"])
-    adamw_r.load_state_dict(ckpt["adamw"])
+    for (opt, _), sd in zip(optimizers_r, ckpt["optimizers"]):
+        opt.load_state_dict(sd)
     loader_r.load_state_dict(ckpt["loader"])
 
     resumed_losses = []
     for step in range(5, 10):
         tokens = loader_r.next_batch()
-        loss, _ = train_step(model_r, tokens, muon_r, adamw_r, cfg, step)
+        loss, _ = train_step(model_r, tokens, optimizers_r, cfg, step)
         resumed_losses.append(loss)
 
     # Steps 5–9 must match baseline steps 5–9 exactly (CPU is deterministic).
