@@ -206,7 +206,10 @@ def train(cfg: TrainConfig) -> None:
 
     optimizers = build_optimizers(model, cfg)
 
-    loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len)
+    from tinylm.preflight import check_data_sufficiency
+    check_data_sufficiency(cfg.shard_dir, cfg.total_steps, cfg.batch_size,
+                           cfg.grad_accum_steps, cfg.seq_len, max_epochs=4)
+    loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len, max_epochs=4)
 
     start_step = 0
     if cfg.resume_from:
