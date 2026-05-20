@@ -23,6 +23,20 @@ from tinylm.model import ModelConfig, TinyLM
 from tinylm.muon import Muon, partition_params
 
 
+_STOP_REQUESTED = False
+
+
+def _handle_sigterm(signum, frame):
+    """SLURM sends SIGTERM before SIGKILL at the wall clock. Flag a clean stop."""
+    global _STOP_REQUESTED
+    _STOP_REQUESTED = True
+    print(f"[train] received signal {signum} — will checkpoint and exit at step end.")
+
+
+def _should_stop() -> bool:
+    return _STOP_REQUESTED
+
+
 @dataclass
 class TrainConfig:
     # Identity
@@ -229,6 +243,8 @@ def train(cfg: TrainConfig) -> None:
     )
 
     os.makedirs("checkpoints", exist_ok=True)
+    import signal
+    signal.signal(signal.SIGTERM, _handle_sigterm)
     model.train()
     t0 = time.perf_counter()
     tokens_logged = 0
@@ -290,6 +306,12 @@ def train(cfg: TrainConfig) -> None:
         if (step + 1) % cfg.save_every == 0 or step == cfg.total_steps - 1:
             ckpt_path = f"checkpoints/step_{step:05d}.pt"
             save_checkpoint(ckpt_path, step, model, optimizers, loader, vars(cfg))
+            save_checkpoint("checkpoints/last.pt", step, model, optimizers, loader, vars(cfg))
+
+        if _should_stop():
+            save_checkpoint("checkpoints/last.pt", step, model, optimizers, loader, vars(cfg))
+            print(f"[train] checkpointed at step {step} on signal — exiting.")
+            break
 
     wandb.finish()
 
