@@ -19,6 +19,7 @@ import torch.nn.functional as F
 import yaml
 
 from tinylm.data import ShardLoader
+from tinylm.losses import chunked_cross_entropy
 from tinylm.model import ModelConfig, TinyLM
 from tinylm.muon import Muon, partition_params
 
@@ -191,7 +192,7 @@ def train_step(
         opt.zero_grad(set_to_none=True)
 
     logits = model(tokens[:, :-1])
-    loss = F.cross_entropy(
+    loss = chunked_cross_entropy(
         logits.reshape(-1, cfg.vocab_size),
         tokens[:, 1:].reshape(-1),
     )
@@ -265,30 +266,30 @@ def train(cfg: TrainConfig) -> None:
                 pg["lr"] = lr
             opt.zero_grad(set_to_none=True)
 
-        loss_accum = 0.0
+        # Accumulate loss as a tensor; defer .item()/isfinite to log steps so the
+        # GPU pipeline isn't synced grad_accum_steps times per step.
+        loss_accum = torch.zeros((), device=device)
         for _ in range(cfg.grad_accum_steps):
-            tokens = loader.next_batch().to(device)
+            tokens = loader.next_batch().to(device, non_blocking=True)
             with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=cfg.use_bf16 and device == "cuda"):
                 logits = model(tokens[:, :-1])
-                loss = F.cross_entropy(
+                loss = chunked_cross_entropy(
                     logits.reshape(-1, cfg.vocab_size),
                     tokens[:, 1:].reshape(-1),
                 ) / cfg.grad_accum_steps
-            if not loss.isfinite():
-                raise RuntimeError(
-                    f"Loss is non-finite at step {step} — training diverged."
-                )
             loss.backward()
-            loss_accum += loss.item()
+            loss_accum += loss.detach()
 
-        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip).item()
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
         for opt, _ in optimizers:
             opt.step()
 
-        loss = loss_accum
         tokens_logged += cfg.batch_size * cfg.seq_len * cfg.grad_accum_steps
 
         if step % cfg.log_every == 0:
+            loss_val = loss_accum.item()       # single sync per log interval
+            if not math.isfinite(loss_val):
+                raise RuntimeError(f"Loss non-finite at step {step} — diverged.")
             t1 = time.perf_counter()
             elapsed = t1 - t0
             tok_per_sec = tokens_logged / max(elapsed, 1e-9)
@@ -296,8 +297,8 @@ def train(cfg: TrainConfig) -> None:
             lr_a = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, cfg.lr_adamw)
             wandb.log(
                 {
-                    "train/loss": loss,
-                    "train/grad_norm": grad_norm,
+                    "train/loss": loss_val,
+                    "train/grad_norm": grad_norm.item(),
                     "perf/tokens_per_sec": tok_per_sec,
                     "perf/step_time_ms": elapsed / max(step % cfg.log_every, 1) * 1000,
                     "optim/lr_muon": lr_m,
@@ -306,7 +307,7 @@ def train(cfg: TrainConfig) -> None:
                 step=step,
             )
             print(
-                f"step {step:5d} | loss {loss:.4f} | "
+                f"step {step:5d} | loss {loss_val:.4f} | "
                 f"tok/s {tok_per_sec:,.0f} | lr_m {lr_m:.2e}"
             )
             t0 = t1
