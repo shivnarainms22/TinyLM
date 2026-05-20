@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 import yaml
 
-from tinylm.data import ShardLoader
+from tinylm.data import PrefetchLoader, ShardLoader
 from tinylm.losses import chunked_cross_entropy
 from tinylm.model import ModelConfig, TinyLM
 from tinylm.muon import Muon, partition_params
@@ -233,7 +233,8 @@ def train(cfg: TrainConfig) -> None:
     from tinylm.preflight import check_data_sufficiency
     check_data_sufficiency(cfg.shard_dir, cfg.total_steps, cfg.batch_size,
                            cfg.grad_accum_steps, cfg.seq_len, max_epochs=4)
-    loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len, max_epochs=4)
+    base_loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len, max_epochs=4)
+    loader = PrefetchLoader(base_loader) if device == "cuda" else base_loader
 
     start_step = 0
     if cfg.resume_from and os.path.exists(cfg.resume_from):

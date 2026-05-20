@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import glob
 import os
+import queue
+import threading
 
 import numpy as np
 import torch
@@ -90,3 +92,63 @@ class ShardLoader:
         self.token_pos = state["token_pos"]
         self.epoch = state.get("epoch", 0)
         self._tokens = self._load(self.shard_idx)
+
+
+class PrefetchLoader:
+    """Background-thread wrapper around ShardLoader.
+
+    Removes the GPU stall caused by synchronous np.load + tensor assembly on the
+    training thread. Yields pinned CPU tensors (caller does .to(device,
+    non_blocking=True)). Resume is exact: state_dict() returns the underlying
+    loader position AFTER the last batch the consumer actually received, so the
+    discarded look-ahead batches are regenerated identically on resume.
+    """
+
+    def __init__(self, loader: "ShardLoader", depth: int = 2):
+        self._loader = loader
+        self._q: queue.Queue = queue.Queue(maxsize=depth)
+        self._stop = threading.Event()
+        self._last_state = loader.state_dict()
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+        self._thread.start()
+
+    def _worker(self):
+        while not self._stop.is_set():
+            batch = self._loader.next_batch()
+            state = self._loader.state_dict()  # position AFTER this batch
+            try:
+                batch = batch.pin_memory()
+            except RuntimeError:
+                pass  # no CUDA / pinning unavailable (CPU tests)
+            while not self._stop.is_set():
+                try:
+                    self._q.put((batch, state), timeout=0.5)
+                    break
+                except queue.Full:
+                    continue
+
+    def next_batch(self) -> torch.Tensor:
+        batch, state = self._q.get()
+        self._last_state = state
+        return batch
+
+    def state_dict(self) -> dict:
+        return self._last_state
+
+    def load_state_dict(self, state: dict) -> None:
+        self.close()
+        self._loader.load_state_dict(state)
+        self._last_state = self._loader.state_dict()
+        self._stop = threading.Event()
+        self._q = queue.Queue(maxsize=self._q.maxsize)
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+        self._thread.start()
+
+    def close(self) -> None:
+        self._stop.set()
+        try:
+            while True:
+                self._q.get_nowait()
+        except queue.Empty:
+            pass
+        self._thread.join(timeout=2.0)
