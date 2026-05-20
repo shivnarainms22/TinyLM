@@ -92,6 +92,15 @@ def load_config(path: str) -> TrainConfig:
     return TrainConfig(**d)
 
 
+def apply_env_overrides(cfg: TrainConfig) -> TrainConfig:
+    """HPC job scripts inject resume/shard paths via env without editing YAML."""
+    if os.environ.get("TINYLM_RESUME"):
+        cfg.resume_from = os.environ["TINYLM_RESUME"]
+    if os.environ.get("TINYLM_SHARD_DIR"):
+        cfg.shard_dir = os.environ["TINYLM_SHARD_DIR"]
+    return cfg
+
+
 def build_optimizers(model: torch.nn.Module, cfg: TrainConfig):
     """Return [(optimizer, lr_max), ...] based on cfg.optimizer.
 
@@ -226,7 +235,7 @@ def train(cfg: TrainConfig) -> None:
     loader = ShardLoader(cfg.shard_dir, cfg.batch_size, cfg.seq_len, max_epochs=4)
 
     start_step = 0
-    if cfg.resume_from:
+    if cfg.resume_from and os.path.exists(cfg.resume_from):
         ckpt = load_checkpoint(cfg.resume_from)
         model.load_state_dict(ckpt["model"])
         for (opt, _), sd in zip(optimizers, ckpt["optimizers"]):
@@ -322,4 +331,4 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python -m tinylm.train <config.yaml>")
         sys.exit(1)
-    train(load_config(sys.argv[1]))
+    train(apply_env_overrides(load_config(sys.argv[1])))

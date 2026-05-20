@@ -176,3 +176,19 @@ def test_checkpoint_resume_consistency(tmp_path):
             f"(diff {abs(bl - rl):.2e}) — checkpoint resume is not reproducing "
             f"the training trajectory"
         )
+
+
+def test_env_overrides_apply(tmp_path, monkeypatch):
+    """TINYLM_RESUME / TINYLM_SHARD_DIR override config fields."""
+    from tinylm.train import load_config, apply_env_overrides
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(
+        "run_name: t\nshard_dir: data/shards\nresume_from: null\n"
+        "attention: mla\noptimizer: muon\n"
+    )
+    cfg = load_config(str(cfg_path))
+    monkeypatch.setenv("TINYLM_RESUME", "checkpoints/last.pt")
+    monkeypatch.setenv("TINYLM_SHARD_DIR", "/scratch/me/data")
+    cfg = apply_env_overrides(cfg)
+    assert cfg.resume_from == "checkpoints/last.pt"
+    assert cfg.shard_dir == "/scratch/me/data"
