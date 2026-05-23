@@ -178,6 +178,32 @@ def test_checkpoint_resume_consistency(tmp_path):
         )
 
 
+def test_prune_checkpoints_keeps_last_n(tmp_path):
+    """prune_checkpoints keeps the most recent N step_*.pt, never touches last.pt."""
+    from tinylm.train import prune_checkpoints
+    ckpt_dir = tmp_path / "checkpoints"
+    ckpt_dir.mkdir()
+    for s in (499, 999, 1499, 1999):
+        (ckpt_dir / f"step_{s:05d}.pt").write_text("x")
+    (ckpt_dir / "last.pt").write_text("x")
+
+    prune_checkpoints(str(ckpt_dir), keep=2)
+
+    remaining = sorted(p.name for p in ckpt_dir.glob("*.pt"))
+    assert remaining == ["last.pt", "step_01499.pt", "step_01999.pt"]
+
+
+def test_prune_checkpoints_keep_zero_is_noop(tmp_path):
+    """keep=0 disables rotation (keeps everything)."""
+    from tinylm.train import prune_checkpoints
+    ckpt_dir = tmp_path / "checkpoints"
+    ckpt_dir.mkdir()
+    for s in (499, 999):
+        (ckpt_dir / f"step_{s:05d}.pt").write_text("x")
+    prune_checkpoints(str(ckpt_dir), keep=0)
+    assert len(list(ckpt_dir.glob("step_*.pt"))) == 2
+
+
 def test_env_overrides_apply(tmp_path, monkeypatch):
     """TINYLM_RESUME / TINYLM_SHARD_DIR override config fields."""
     from tinylm.train import load_config, apply_env_overrides

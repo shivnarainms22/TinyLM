@@ -75,6 +75,9 @@ class TrainConfig:
     # Logging / checkpointing
     log_every: int = 10
     save_every: int = 100
+    # Keep only the most recent N numbered step_*.pt checkpoints (last.pt always
+    # kept). Bounds /scratch usage over a long run. 0 = keep all (no rotation).
+    keep_checkpoints: int = 2
     wandb_project: str = "tinylm"
     # Resume
     resume_from: Optional[str] = None
@@ -170,6 +173,23 @@ def save_checkpoint(
 def load_checkpoint(path: str) -> dict:
     """Load a checkpoint from disk. Returns raw dict."""
     return torch.load(path, map_location="cpu", weights_only=True)
+
+
+def prune_checkpoints(ckpt_dir: str, keep: int) -> None:
+    """Delete all but the most recent `keep` numbered step_*.pt checkpoints.
+
+    Never touches last.pt. keep<=0 disables rotation (keeps everything).
+    step_*.pt names are zero-padded so lexicographic sort == numeric order.
+    """
+    if keep <= 0:
+        return
+    import glob
+    paths = sorted(glob.glob(os.path.join(ckpt_dir, "step_*.pt")))
+    for old in paths[:-keep]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
 
 
 def train_step(
@@ -318,6 +338,7 @@ def train(cfg: TrainConfig) -> None:
             ckpt_path = f"checkpoints/step_{step:05d}.pt"
             save_checkpoint(ckpt_path, step, model, optimizers, loader, vars(cfg))
             save_checkpoint("checkpoints/last.pt", step, model, optimizers, loader, vars(cfg))
+            prune_checkpoints("checkpoints", cfg.keep_checkpoints)
 
         if _should_stop():
             save_checkpoint("checkpoints/last.pt", step, model, optimizers, loader, vars(cfg))
