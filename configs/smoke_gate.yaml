@@ -29,7 +29,7 @@ weight_decay: 0.1
 grad_clip: 1.0
 
 log_every: 10
-save_every: 200
+save_every: 50
 wandb_project: tinylm
 
 resume_from: null
