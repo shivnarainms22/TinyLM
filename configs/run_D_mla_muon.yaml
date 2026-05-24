@@ -34,7 +34,7 @@ grad_clip: 1.0
 
 # Logging / checkpointing
 log_every: 10
-save_every: 500
+save_every: 100
 wandb_project: tinylm
 
 # Resume — set by hpc_job.sh via TINYLM_RESUME (-> checkpoints/last.pt)
