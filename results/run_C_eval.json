@@ -4,35 +4,35 @@
       "name": "hellaswag",
       "alias": "hellaswag",
       "sample_len": 10042,
-      "acc,none": 0.3399721171081458,
-      "acc_stderr,none": 0.004727312448892835,
-      "acc_norm,none": 0.4122684724158534,
-      "acc_norm_stderr,none": 0.004912370023913013
+      "acc,none": 0.3370842461661024,
+      "acc_stderr,none": 0.004717478335689643,
+      "acc_norm,none": 0.4054969129655447,
+      "acc_norm_stderr,none": 0.004899845087183111
     },
     "arc_easy": {
       "name": "arc_easy",
       "alias": "arc_easy",
       "sample_len": 2376,
-      "acc,none": 0.5753367003367004,
-      "acc_stderr,none": 0.010142653687480414,
-      "acc_norm,none": 0.5122053872053872,
-      "acc_norm_stderr,none": 0.010256726235129018
+      "acc,none": 0.5803872053872053,
+      "acc_stderr,none": 0.010126315840891548,
+      "acc_norm,none": 0.5105218855218855,
+      "acc_norm_stderr,none": 0.010257511546488228
     },
     "lambada_openai": {
       "name": "lambada_openai",
       "alias": "lambada_openai",
       "sample_len": 5153,
-      "perplexity,none": 26.544584994787567,
-      "perplexity_stderr,none": 0.9440218875900782,
-      "acc,none": 0.3681350669512905,
-      "acc_stderr,none": 0.006719358208525952
+      "perplexity,none": 30.78949956086338,
+      "perplexity_stderr,none": 1.1365441297847696,
+      "acc,none": 0.35474480884921405,
+      "acc_stderr,none": 0.006665547856743829
     },
     "winogrande": {
       "name": "winogrande",
       "alias": "winogrande",
       "sample_len": 1267,
-      "acc,none": 0.5130228887134964,
-      "acc_stderr,none": 0.014047718393997674
+      "acc,none": 0.5146014206787688,
+      "acc_stderr,none": 0.014046492383275839
     }
   },
   "group_subtasks": {},
@@ -102,7 +102,7 @@
       "fewshot_config": {
         "sampler": "default",
         "split": null,
-        "process_docs": "<function process_docs at 0x14bad8cf8a40>",
+        "process_docs": "<function process_docs at 0x146435df4400>",
         "fewshot_indices": null,
         "samples": null,
         "doc_to_text": "{{query}}",
@@ -198,9 +198,9 @@
         "process_docs": null,
         "fewshot_indices": null,
         "samples": null,
-        "doc_to_text": "<function doc_to_text at 0x14bacbe3f880>",
-        "doc_to_choice": "<function doc_to_choice at 0x14bacbe3fb00>",
-        "doc_to_target": "<function doc_to_target at 0x14bacbe3f060>",
+        "doc_to_text": "<function doc_to_text at 0x1463c609e840>",
+        "doc_to_choice": "<function doc_to_choice at 0x1463c609e520>",
+        "doc_to_target": "<function doc_to_target at 0x1463c609fb00>",
         "gen_prefix": null,
         "fewshot_delimiter": "\n\n",
         "target_delimiter": " "
@@ -286,8 +286,8 @@
     "fewshot_seed": 1234
   },
   "git_hash": "7377999",
-  "date": 1780178454.3837585,
-  "pretty_env_info": "PyTorch version: 2.11.0+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Rocky Linux 9.3 (Blue Onyx) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-11)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.11.15 (main, Mar 11 2026, 17:20:07) [GCC 14.3.0] (64-bit runtime)\nPython platform: Linux-5.14.0-362.13.1.el9_3.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.8.61\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: GPU 0: NVIDIA A100-SXM4-80GB\nNvidia driver version: 570.86.15\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\nCaching allocator config: N/A\n\nCPU:\nArchitecture:                       x86_64\nCPU op-mode(s):                     32-bit, 64-bit\nAddress sizes:                      48 bits physical, 48 bits virtual\nByte Order:                         Little Endian\nCPU(s):                             64\nOn-line CPU(s) list:                0-63\nVendor ID:                          AuthenticAMD\nModel name:                         AMD EPYC 7543 32-Core Processor\nCPU family:                         25\nModel:                              1\nThread(s) per core:                 1\nCore(s) per socket:                 32\nSocket(s):                          2\nStepping:                           1\nBogoMIPS:                           5589.84\nFlags:                              fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl nonstop_tsc cpuid extd_apicid aperfmperf rapl pni pclmulqdq monitor ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand lahf_lm cmp_legacy svm extapic cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw ibs skinit wdt tce topoext perfctr_core perfctr_nb bpext perfctr_llc mwaitx cpb cat_l3 cdp_l3 invpcid_single hw_pstate ssbd mba ibrs ibpb stibp vmmcall fsgsbase bmi1 avx2 smep bmi2 invpcid cqm rdt_a rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local clzero irperf xsaveerptr rdpru wbnoinvd amd_ppin brs arat npt lbrv svm_lock nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload vgif v_spec_ctrl umip pku ospke vaes vpclmulqdq rdpid overflow_recov succor smca\nVirtualization:                     AMD-V\nL1d cache:                          2 MiB (64 instances)\nL1i cache:                          2 MiB (64 instances)\nL2 cache:                           32 MiB (64 instances)\nL3 cache:                           512 MiB (16 instances)\nNUMA node(s):                       8\nNUMA node0 CPU(s):                  0-7\nNUMA node1 CPU(s):                  8-15\nNUMA node2 CPU(s):                  16-23\nNUMA node3 CPU(s):                  24-31\nNUMA node4 CPU(s):                  32-39\nNUMA node5 CPU(s):                  40-47\nNUMA node6 CPU(s):                  48-55\nNUMA node7 CPU(s):                  56-63\nVulnerability Gather data sampling: Not affected\nVulnerability Itlb multihit:        Not affected\nVulnerability L1tf:                 Not affected\nVulnerability Mds:                  Not affected\nVulnerability Meltdown:             Not affected\nVulnerability Mmio stale data:      Not affected\nVulnerability Retbleed:             Not affected\nVulnerability Spec rstack overflow: Mitigation; Safe RET\nVulnerability Spec store bypass:    Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:           Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:           Mitigation; Retpolines, IBPB conditional, IBRS_FW, STIBP disabled, RSB filling, PBRSB-eIBRS Not affected\nVulnerability Srbds:                Not affected\nVulnerability Tsx async abort:      Not affected\n\nVersions of relevant libraries:\n[pip3] numpy==2.4.6\n[pip3] nvidia-cublas-cu12==12.8.4.1\n[pip3] nvidia-cuda-cupti-cu12==12.8.90\n[pip3] nvidia-cuda-nvrtc-cu12==12.8.93\n[pip3] nvidia-cuda-runtime-cu12==12.8.90\n[pip3] nvidia-cudnn-cu12==9.19.0.56\n[pip3] nvidia-cufft-cu12==11.3.3.83\n[pip3] nvidia-curand-cu12==10.3.9.90\n[pip3] nvidia-cusolver-cu12==11.7.3.90\n[pip3] nvidia-cusparse-cu12==12.5.8.93\n[pip3] nvidia-cusparselt-cu12==0.7.1\n[pip3] nvidia-nccl-cu12==2.28.9\n[pip3] nvidia-nvjitlink-cu12==12.8.93\n[pip3] nvidia-nvtx-cu12==12.8.90\n[pip3] torch==2.11.0+cu128\n[pip3] triton==3.6.0\n[conda] numpy                     2.4.6                    pypi_0    pypi\n[conda] nvidia-cublas-cu12        12.8.4.1                 pypi_0    pypi\n[conda] nvidia-cuda-cupti-cu12    12.8.90                  pypi_0    pypi\n[conda] nvidia-cuda-nvrtc-cu12    12.8.93                  pypi_0    pypi\n[conda] nvidia-cuda-runtime-cu12  12.8.90                  pypi_0    pypi\n[conda] nvidia-cudnn-cu12         9.19.0.56                pypi_0    pypi\n[conda] nvidia-cufft-cu12         11.3.3.83                pypi_0    pypi\n[conda] nvidia-curand-cu12        10.3.9.90                pypi_0    pypi\n[conda] nvidia-cusolver-cu12      11.7.3.90                pypi_0    pypi\n[conda] nvidia-cusparse-cu12      12.5.8.93                pypi_0    pypi\n[conda] nvidia-cusparselt-cu12    0.7.1                    pypi_0    pypi\n[conda] nvidia-nccl-cu12          2.28.9                   pypi_0    pypi\n[conda] nvidia-nvjitlink-cu12     12.8.93                  pypi_0    pypi\n[conda] nvidia-nvtx-cu12          12.8.90                  pypi_0    pypi\n[conda] torch                     2.11.0+cu128             pypi_0    pypi\n[conda] triton                    3.6.0                    pypi_0    pypi",
+  "date": 1779905962.0329995,
+  "pretty_env_info": "PyTorch version: 2.11.0+cu128\nIs debug build: False\nCUDA used to build PyTorch: 12.8\nROCM used to build PyTorch: N/A\n\nOS: Rocky Linux 9.3 (Blue Onyx) (x86_64)\nGCC version: (GCC) 11.5.0 20240719 (Red Hat 11.5.0-11)\nClang version: Could not collect\nCMake version: Could not collect\nLibc version: glibc-2.34\n\nPython version: 3.11.15 (main, Mar 11 2026, 17:20:07) [GCC 14.3.0] (64-bit runtime)\nPython platform: Linux-5.14.0-362.13.1.el9_3.x86_64-x86_64-with-glibc2.34\nIs CUDA available: True\nCUDA runtime version: 12.8.61\nCUDA_MODULE_LOADING set to: \nGPU models and configuration: GPU 0: Tesla T4\nNvidia driver version: 570.86.15\ncuDNN version: Could not collect\nIs XPU available: False\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\nCaching allocator config: N/A\n\nCPU:\nArchitecture:                       x86_64\nCPU op-mode(s):                     32-bit, 64-bit\nAddress sizes:                      46 bits physical, 48 bits virtual\nByte Order:                         Little Endian\nCPU(s):                             36\nOn-line CPU(s) list:                0-35\nVendor ID:                          GenuineIntel\nModel name:                         Intel(R) Xeon(R) Gold 6240 CPU @ 2.60GHz\nCPU family:                         6\nModel:                              85\nThread(s) per core:                 1\nCore(s) per socket:                 18\nSocket(s):                          2\nStepping:                           7\nCPU(s) scaling MHz:                 61%\nCPU max MHz:                        3900.0000\nCPU min MHz:                        1000.0000\nBogoMIPS:                           5200.00\nFlags:                              fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cdp_l3 invpcid_single intel_ppin ssbd mba ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm mpx rdt_a avx512f avx512dq rdseed adx smap clflushopt clwb intel_pt avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local dtherm ida arat pln pts pku ospke avx512_vnni md_clear flush_l1d arch_capabilities\nL1d cache:                          1.1 MiB (36 instances)\nL1i cache:                          1.1 MiB (36 instances)\nL2 cache:                           36 MiB (36 instances)\nL3 cache:                           49.5 MiB (2 instances)\nNUMA node(s):                       2\nNUMA node0 CPU(s):                  0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34\nNUMA node1 CPU(s):                  1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35\nVulnerability Gather data sampling: Mitigation; Microcode\nVulnerability Itlb multihit:        KVM: Mitigation: VMX unsupported\nVulnerability L1tf:                 Not affected\nVulnerability Mds:                  Not affected\nVulnerability Meltdown:             Not affected\nVulnerability Mmio stale data:      Mitigation; Clear CPU buffers; SMT disabled\nVulnerability Retbleed:             Mitigation; Enhanced IBRS\nVulnerability Spec rstack overflow: Not affected\nVulnerability Spec store bypass:    Mitigation; Speculative Store Bypass disabled via prctl\nVulnerability Spectre v1:           Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:           Mitigation; Enhanced / Automatic IBRS, IBPB conditional, RSB filling, PBRSB-eIBRS SW sequence\nVulnerability Srbds:                Not affected\nVulnerability Tsx async abort:      Mitigation; TSX disabled\n\nVersions of relevant libraries:\n[pip3] numpy==2.4.6\n[pip3] nvidia-cublas-cu12==12.8.4.1\n[pip3] nvidia-cuda-cupti-cu12==12.8.90\n[pip3] nvidia-cuda-nvrtc-cu12==12.8.93\n[pip3] nvidia-cuda-runtime-cu12==12.8.90\n[pip3] nvidia-cudnn-cu12==9.19.0.56\n[pip3] nvidia-cufft-cu12==11.3.3.83\n[pip3] nvidia-curand-cu12==10.3.9.90\n[pip3] nvidia-cusolver-cu12==11.7.3.90\n[pip3] nvidia-cusparse-cu12==12.5.8.93\n[pip3] nvidia-cusparselt-cu12==0.7.1\n[pip3] nvidia-nccl-cu12==2.28.9\n[pip3] nvidia-nvjitlink-cu12==12.8.93\n[pip3] nvidia-nvtx-cu12==12.8.90\n[pip3] torch==2.11.0+cu128\n[pip3] triton==3.6.0\n[conda] numpy                     2.4.6                    pypi_0    pypi\n[conda] nvidia-cublas-cu12        12.8.4.1                 pypi_0    pypi\n[conda] nvidia-cuda-cupti-cu12    12.8.90                  pypi_0    pypi\n[conda] nvidia-cuda-nvrtc-cu12    12.8.93                  pypi_0    pypi\n[conda] nvidia-cuda-runtime-cu12  12.8.90                  pypi_0    pypi\n[conda] nvidia-cudnn-cu12         9.19.0.56                pypi_0    pypi\n[conda] nvidia-cufft-cu12         11.3.3.83                pypi_0    pypi\n[conda] nvidia-curand-cu12        10.3.9.90                pypi_0    pypi\n[conda] nvidia-cusolver-cu12      11.7.3.90                pypi_0    pypi\n[conda] nvidia-cusparse-cu12      12.5.8.93                pypi_0    pypi\n[conda] nvidia-cusparselt-cu12    0.7.1                    pypi_0    pypi\n[conda] nvidia-nccl-cu12          2.28.9                   pypi_0    pypi\n[conda] nvidia-nvjitlink-cu12     12.8.93                  pypi_0    pypi\n[conda] nvidia-nvtx-cu12          12.8.90                  pypi_0    pypi\n[conda] torch                     2.11.0+cu128             pypi_0    pypi\n[conda] triton                    3.6.0                    pypi_0    pypi",
   "transformers_version": "5.9.0",
   "lm_eval_version": "0.4.12",
   "upper_git_hash": null
