@@ -41,3 +41,6 @@ logs/
 
 # Local Claude Code instructions (not for remote)
 CLAUDE.md
+
+# Internal planning docs (specs, plans) — local only
+docs/superpowers/
