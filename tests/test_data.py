@@ -88,3 +88,23 @@ def test_state_dict_round_trip(tmp_path):
     assert torch.equal(expected_next, actual_next), (
         "Batch after state_dict round-trip does not match original sequence"
     )
+
+
+def test_epoch_increments_on_wrap(tmp_path):
+    from tinylm.data import ShardLoader
+    # 1 shard, 90 tokens, batch 2 x (seq 8 +1) = 18 tokens -> 5 batches per epoch
+    shard_dir = _make_shards(tmp_path, n_shards=1, tokens_per_shard=90)
+    loader = ShardLoader(shard_dir, batch_size=2, seq_len=8, max_epochs=10)
+    assert loader.epoch == 0
+    for _ in range(5):
+        loader.next_batch()
+    assert loader.epoch == 1, f"expected epoch 1 after one pass, got {loader.epoch}"
+
+
+def test_raises_when_max_epochs_exceeded(tmp_path):
+    from tinylm.data import ShardLoader
+    shard_dir = _make_shards(tmp_path, n_shards=1, tokens_per_shard=90)
+    loader = ShardLoader(shard_dir, batch_size=2, seq_len=8, max_epochs=1)
+    with pytest.raises(RuntimeError, match="max_epochs"):
+        for _ in range(20):  # would loop well past 1 epoch
+            loader.next_batch()

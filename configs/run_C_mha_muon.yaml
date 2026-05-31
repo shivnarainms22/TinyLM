@@ -1,8 +1,8 @@
-# TinyLM — Run D (MLA + Muon) — HPC re-run, honest data (8B tokens, ~3 epochs)
-run_name: run_D_mla_muon_v2     # distinct from v1 "run_D_full" (no WandB collision)
+# TinyLM — Run C (MHA + Muon) — HPC re-run, honest data (8B tokens, ~3 epochs)
+run_name: run_C_mha_muon
 
 # Ablation arm (locked — only attention + optimizer differ across A/B/C/D)
-attention: mla
+attention: mha
 optimizer: muon
 
 # Model architecture — LOCKED from docs/ablation_plan.md

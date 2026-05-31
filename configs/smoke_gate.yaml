@@ -1,0 +1,39 @@
+# TinyLM — Smoke gate (capped) — verify go/no-go on Explorer 40GB before full runs.
+# Same recipe as Run D but only 800 steps. Kill after gates pass.
+run_name: smoke_gate
+
+attention: mla
+optimizer: muon
+
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+shard_dir: data/shards
+batch_size: 16          # 40GB starting micro-batch; this run confirms it fits
+grad_accum_steps: 32    # effective batch = 16 * 32 = 512
+seq_len: 2048
+
+total_steps: 800
+warmup_steps: 100
+
+lr_muon: 0.02
+lr_adamw: 0.001
+weight_decay: 0.1
+grad_clip: 1.0
+
+log_every: 10
+save_every: 50
+wandb_project: tinylm
+
+resume_from: null
+
+compile: true
+use_bf16: true
+grad_checkpoint: false

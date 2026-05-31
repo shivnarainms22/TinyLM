@@ -28,6 +28,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--repo", required=True, help="HF repo id, e.g. username/tinylm-checkpoints")
     p.add_argument("--ckpt-dir", default="checkpoints", help="Local checkpoint directory")
     p.add_argument("--interval", type=int, default=60, help="Poll interval in seconds")
+    p.add_argument("--prefix", default="", help="Path prefix in repo, e.g. run_A")
     return p.parse_args()
 
 
@@ -57,10 +58,11 @@ def main() -> None:
             if os.path.getsize(path) != size_before:
                 continue  # still writing, pick it up next poll
 
-            print(f"  Uploading {filename} ...", flush=True)
+            path_in_repo = os.path.join(args.prefix, filename) if args.prefix else filename
+            print(f"  Uploading {filename} -> {path_in_repo} ...", flush=True)
             api.upload_file(
                 path_or_fileobj=path,
-                path_in_repo=filename,
+                path_in_repo=path_in_repo,
                 repo_id=args.repo,
                 repo_type="model",
             )
