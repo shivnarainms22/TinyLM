@@ -139,4 +139,4 @@ contrast above.)
 - [x] v1 — Eval complete (Run D benchmarked, results in `results/baseline_comparison.md`)
 - [x] HPC Re-run — All 4 arms trained (23k steps each, 8B unique tokens, Explorer A100-40GB)
 - [x] HPC Re-run — All 4 arms evaled (full 2×2 ablation in `results/hpc_rerun_ablation.md`)
-- [ ] Interview narrative + HF model card update
+- [x] HF model cards published — main, ablation checkpoints, v1 historical
