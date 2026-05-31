@@ -38,3 +38,6 @@ logs/
 !docs/**
 !results/**
 !baseline_results.json
+
+# Local Claude Code instructions (not for remote)
+CLAUDE.md
