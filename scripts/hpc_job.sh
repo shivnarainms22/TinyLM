@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 8h SLURM segment for one TinyLM run. Submit via scripts/submit_hpc.sh.
 # Pre-emptively chains the next segment; resumes from checkpoints/last.pt.
-# Env injected by submit: RUN_NAME, CONFIG, TOTAL_STEPS
+# Env injected by submit: RUN_NAME, CONFIG, TOTAL_STEPS, optional INIT_FROM/SHARD_DIR
 #SBATCH --partition=gpu
 #SBATCH --time=7:50:00
 #SBATCH --nodes=1
@@ -22,7 +22,10 @@ source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate tinylm
 export PATH="${HOME}/.conda/envs/tinylm/bin:${PATH}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export WANDB_DIR="${SCRATCH}/wandb"
-export TINYLM_SHARD_DIR="${SCRATCH}/tinylm/data"
+export TINYLM_SHARD_DIR="${SHARD_DIR:-${SCRATCH}/tinylm/data}"
+if [[ -n "${INIT_FROM:-}" ]]; then
+    export TINYLM_INIT_FROM="${INIT_FROM}"
+fi
 
 # Early-exit if this run already reached TOTAL_STEPS.
 if [[ -f "${CKPT}" ]]; then
@@ -37,7 +40,7 @@ fi
 # Pre-emptively queue the next segment (survives a hard SIGKILL at the wall).
 NEXT=$(sbatch --dependency=afterany:"${SLURM_JOB_ID}" --job-name="${RUN_NAME}" \
     --output="${LOG_DIR}/${RUN_NAME}_%j.log" \
-    --export=ALL,RUN_NAME="${RUN_NAME}",CONFIG="${CONFIG}",TOTAL_STEPS="${TOTAL_STEPS}" \
+    --export=ALL,RUN_NAME="${RUN_NAME}",CONFIG="${CONFIG}",TOTAL_STEPS="${TOTAL_STEPS}",INIT_FROM="${INIT_FROM:-}",SHARD_DIR="${SHARD_DIR:-}" \
     "${REPO}/scripts/hpc_job.sh" | awk '{print $NF}')
 echo "Next segment queued as ${NEXT}."
 
