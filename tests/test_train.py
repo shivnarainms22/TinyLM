@@ -67,6 +67,33 @@ def _build_training_components(cfg):
     return model, optimizers, loader
 
 
+def _save_compiled_seed_checkpoint(path, cfg, saved_step):
+    """Write a seed checkpoint whose model keys carry the torch.compile
+    '_orig_mod.' prefix, mimicking a Run D checkpoint saved with compile=True.
+
+    `saved_step` is deliberately large so an init_from run can prove it does
+    NOT inherit the source step counter.
+    """
+    from tinylm.train import train_step, save_checkpoint
+
+    model, optimizers, loader = _build_training_components(cfg)
+    model.train()
+    tokens = loader.next_batch()
+    train_step(model, tokens, optimizers, cfg, step=0)  # move weights off init
+
+    # save_checkpoint stores model.state_dict() verbatim; wrap so the persisted
+    # keys look exactly like a compiled model's ('_orig_mod.<name>').
+    class _Prefixed:
+        def __init__(self, sd):
+            self._sd = {f"_orig_mod.{k}": v for k, v in sd.items()}
+
+        def state_dict(self):
+            return self._sd
+
+    save_checkpoint(path, saved_step, _Prefixed(model.state_dict()),
+                    optimizers, loader, vars(cfg))
+
+
 # ── cosine_lr tests ─────────────────────────────────────────────────────────
 
 def test_cosine_lr_warmup():
@@ -201,6 +228,72 @@ def test_init_checkpoint_loads_weights_without_resume_state(tmp_path):
         assert torch.allclose(expected, actual)
     assert target_loader.state_dict() == initial_loader_state
     assert all(not opt.state for opt, _ in target_optimizers)
+
+
+def test_train_init_from_runs_end_to_end(tmp_path, monkeypatch):
+    """Stage 0 smoke: the real train() entrypoint loads a compiled-format
+    (Run-D-style, '_orig_mod.'-prefixed) seed via init_from, strips the prefix,
+    and starts a FRESH phase — step resets, source optimizer/loader not inherited.
+
+    This is the path E1 takes on HPC; the unit tests only cover the helper.
+    """
+    from tinylm.train import train
+
+    monkeypatch.setenv("WANDB_MODE", "disabled")
+    monkeypatch.chdir(tmp_path)
+
+    shard_dir = _make_shards(tmp_path)
+    seed_path = str(tmp_path / "run_d_seed.pt")
+    _save_compiled_seed_checkpoint(
+        seed_path, _tiny_cfg(shard_dir, total_steps=3), saved_step=999
+    )
+
+    cfg = _tiny_cfg(shard_dir, total_steps=3)
+    cfg.init_from = seed_path
+    cfg.log_every = 1
+
+    train(cfg)  # must not raise: '_orig_mod.' strip + init_from branch + full loop
+
+    last = tmp_path / "checkpoints" / "last.pt"
+    assert last.exists(), "init_from run wrote no checkpoint"
+    ckpt = torch.load(str(last), map_location="cpu", weights_only=True)
+    assert ckpt["step"] == 2, (
+        f"init_from inherited step state (got {ckpt['step']}, expected 2) — "
+        f"continued pretraining must reset the step counter, not resume from "
+        f"the seed's saved step (999)"
+    )
+
+
+def test_train_resume_after_init_continues(tmp_path, monkeypatch):
+    """After an init_from phase writes a checkpoint, train() resumes via
+    resume_from and advances the step counter — the HPC requeue pattern E1 uses.
+    """
+    from tinylm.train import train
+
+    monkeypatch.setenv("WANDB_MODE", "disabled")
+    monkeypatch.chdir(tmp_path)
+
+    shard_dir = _make_shards(tmp_path)
+    seed_path = str(tmp_path / "run_d_seed.pt")
+    _save_compiled_seed_checkpoint(
+        seed_path, _tiny_cfg(shard_dir, total_steps=3), saved_step=999
+    )
+
+    cfg = _tiny_cfg(shard_dir, total_steps=3)
+    cfg.init_from = seed_path
+    train(cfg)  # phase 1: steps 0..2, checkpoint at step 2
+
+    cfg2 = _tiny_cfg(shard_dir, total_steps=5)
+    cfg2.resume_from = str(tmp_path / "checkpoints" / "last.pt")
+    train(cfg2)  # phase 2: resume at step 3, run to step 4
+
+    ckpt = torch.load(
+        str(tmp_path / "checkpoints" / "last.pt"), map_location="cpu", weights_only=True
+    )
+    assert ckpt["step"] == 4, (
+        f"resume after init did not continue the trajectory "
+        f"(got step {ckpt['step']}, expected 4)"
+    )
 
 
 def test_prune_checkpoints_keeps_last_n(tmp_path):
