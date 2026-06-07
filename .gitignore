@@ -17,6 +17,8 @@ env/
 .idea/
 *.swp
 .DS_Store
+.worktrees/
+.tmp/
 
 # Project artifacts
 checkpoints/
