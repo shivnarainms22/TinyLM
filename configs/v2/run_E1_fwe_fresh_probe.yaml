@@ -1,0 +1,45 @@
+# TinyLM v2 Run E1: fresh FineWeb-Edu continuation probe.
+run_name: phase_v2_E1_fwe_fresh_probe
+attention: mla
+optimizer: muon
+
+# Same 275M Run D architecture.
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+# Set by submit_hpc.sh arg 4 or TINYLM_INIT_FROM on HPC.
+init_from: null
+resume_from: null
+
+# Fresh FineWeb-Edu shards; may be overridden by SHARD_DIR/TINYLM_SHARD_DIR.
+shard_dir: data/v2/fwe_fresh_shards
+batch_size: 16
+grad_accum_steps: 32
+seq_len: 2048
+
+# ~2.1B processed tokens: 2000 * 512 * 2048.
+total_steps: 2000
+warmup_steps: 200
+
+# Continued pretraining: lower than from-scratch Run D.
+lr_muon: 0.006
+lr_adamw: 0.0003
+weight_decay: 0.1
+grad_clip: 1.0
+
+log_every: 10
+save_every: 250
+keep_checkpoints: 4
+wandb_project: tinylm-v2
+
+compile: true
+use_bf16: true
+grad_checkpoint: false
+
