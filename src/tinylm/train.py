@@ -81,6 +81,9 @@ class TrainConfig:
     wandb_project: str = "tinylm"
     # Resume
     resume_from: Optional[str] = None
+    # Initialize model weights from an existing checkpoint without resuming
+    # optimizer, loader, or global step state.
+    init_from: Optional[str] = None
     # Compile (enable on A100, keep False for CPU tests)
     compile: bool = False
 
@@ -100,6 +103,8 @@ def apply_env_overrides(cfg: TrainConfig) -> TrainConfig:
     """HPC job scripts inject resume/shard paths via env without editing YAML."""
     if os.environ.get("TINYLM_RESUME"):
         cfg.resume_from = os.environ["TINYLM_RESUME"]
+    if os.environ.get("TINYLM_INIT_FROM"):
+        cfg.init_from = os.environ["TINYLM_INIT_FROM"]
     if os.environ.get("TINYLM_SHARD_DIR"):
         cfg.shard_dir = os.environ["TINYLM_SHARD_DIR"]
     return cfg
@@ -173,6 +178,19 @@ def save_checkpoint(
 def load_checkpoint(path: str) -> dict:
     """Load a checkpoint from disk. Returns raw dict."""
     return torch.load(path, map_location="cpu", weights_only=True)
+
+
+def load_model_weights(model: torch.nn.Module, path: str) -> None:
+    """Load only model weights from a TinyLM checkpoint.
+
+    Used for continued pretraining phases where the base checkpoint seeds
+    weights, but the optimizer, data-loader state, and step count must restart.
+    """
+    ckpt = load_checkpoint(path)
+    state = ckpt["model"]
+    if any(k.startswith("_orig_mod.") for k in state):
+        state = {k.removeprefix("_orig_mod."): v for k, v in state.items()}
+    model.load_state_dict(state)
 
 
 def prune_checkpoints(ckpt_dir: str, keep: int) -> None:
@@ -265,6 +283,11 @@ def train(cfg: TrainConfig) -> None:
         loader.load_state_dict(ckpt["loader"])
         start_step = ckpt["step"] + 1
         print(f"Resumed from step {ckpt['step']}")
+    elif cfg.init_from:
+        if not os.path.exists(cfg.init_from):
+            raise FileNotFoundError(f"init_from checkpoint not found: {cfg.init_from}")
+        load_model_weights(model, cfg.init_from)
+        print(f"Initialized model weights from {cfg.init_from}")
 
     wandb.init(
         project=cfg.wandb_project,

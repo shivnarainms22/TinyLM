@@ -178,6 +178,31 @@ def test_checkpoint_resume_consistency(tmp_path):
         )
 
 
+def test_init_checkpoint_loads_weights_without_resume_state(tmp_path):
+    """init_from must seed weights only; new phase data/optimizer state stays fresh."""
+    from tinylm.train import train_step, save_checkpoint, load_model_weights
+
+    shard_dir = _make_shards(tmp_path)
+    cfg = _tiny_cfg(shard_dir, total_steps=3)
+
+    source_model, source_optimizers, source_loader = _build_training_components(cfg)
+    source_model.train()
+    tokens = source_loader.next_batch()
+    train_step(source_model, tokens, source_optimizers, cfg, step=0)
+    ckpt_path = str(tmp_path / "run_d_seed.pt")
+    save_checkpoint(ckpt_path, 0, source_model, source_optimizers, source_loader, vars(cfg))
+
+    target_model, target_optimizers, target_loader = _build_training_components(cfg)
+    initial_loader_state = target_loader.state_dict().copy()
+
+    load_model_weights(target_model, ckpt_path)
+
+    for expected, actual in zip(source_model.parameters(), target_model.parameters()):
+        assert torch.allclose(expected, actual)
+    assert target_loader.state_dict() == initial_loader_state
+    assert all(not opt.state for opt, _ in target_optimizers)
+
+
 def test_prune_checkpoints_keeps_last_n(tmp_path):
     """prune_checkpoints keeps the most recent N step_*.pt, never touches last.pt."""
     from tinylm.train import prune_checkpoints
@@ -205,16 +230,18 @@ def test_prune_checkpoints_keep_zero_is_noop(tmp_path):
 
 
 def test_env_overrides_apply(tmp_path, monkeypatch):
-    """TINYLM_RESUME / TINYLM_SHARD_DIR override config fields."""
+    """TINYLM_RESUME / TINYLM_INIT_FROM / TINYLM_SHARD_DIR override config fields."""
     from tinylm.train import load_config, apply_env_overrides
     cfg_path = tmp_path / "c.yaml"
     cfg_path.write_text(
-        "run_name: t\nshard_dir: data/shards\nresume_from: null\n"
+        "run_name: t\nshard_dir: data/shards\nresume_from: null\ninit_from: null\n"
         "attention: mla\noptimizer: muon\n"
     )
     cfg = load_config(str(cfg_path))
     monkeypatch.setenv("TINYLM_RESUME", "checkpoints/last.pt")
+    monkeypatch.setenv("TINYLM_INIT_FROM", "/scratch/me/run_D/last.pt")
     monkeypatch.setenv("TINYLM_SHARD_DIR", "/scratch/me/data")
     cfg = apply_env_overrides(cfg)
     assert cfg.resume_from == "checkpoints/last.pt"
+    assert cfg.init_from == "/scratch/me/run_D/last.pt"
     assert cfg.shard_dir == "/scratch/me/data"
