@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parent.parent
 HPC_JOB = ROOT / "scripts" / "hpc_job.sh"
 SUBMIT_HPC = ROOT / "scripts" / "submit_hpc.sh"
 TOKENIZE_V2_E1 = ROOT / "scripts" / "tokenize_v2_e1_job.sh"
+BUILD_V2_E2 = ROOT / "scripts" / "tokenize_v2_e2_job.sh"
 
 
 def _read(path: Path) -> str:
@@ -37,3 +38,11 @@ def test_e1_tokenize_job_is_disjoint_from_run_d():
     assert "--split sample-100BT" in body          # same stream as Run D
     assert "--skip-tokens 8000000000" in body      # step past Run D's 8B prefix
     assert "--max-shards 21" in body               # 2.1B fresh tokens
+
+
+def test_e2_build_job_runs_mixture_builder():
+    """E2 builds the broader mixture (2.1B) via the proportional builder."""
+    body = _read(BUILD_V2_E2)
+    assert "build_mixture_shards.py" in body
+    assert "mixed_web_code_math" in body
+    assert "--max-shards 21" in body
