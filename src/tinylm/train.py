@@ -185,12 +185,17 @@ def load_model_weights(model: torch.nn.Module, path: str) -> None:
 
     Used for continued pretraining phases where the base checkpoint seeds
     weights, but the optimizer, data-loader state, and step count must restart.
+
+    Robust to torch.compile on either side: the checkpoint may have been saved
+    from a compiled ('_orig_mod.'-prefixed) or eager model, and `model` here may
+    itself be a compiled OptimizedModule. We normalize the checkpoint keys to the
+    eager names and always load into the underlying module, so any combination
+    of {compiled, eager} x {compiled, eager} matches.
     """
     ckpt = load_checkpoint(path)
-    state = ckpt["model"]
-    if any(k.startswith("_orig_mod.") for k in state):
-        state = {k.removeprefix("_orig_mod."): v for k, v in state.items()}
-    model.load_state_dict(state)
+    state = {k.removeprefix("_orig_mod."): v for k, v in ckpt["model"].items()}
+    target = getattr(model, "_orig_mod", model)  # unwrap torch.compile wrapper
+    target.load_state_dict(state)
 
 
 def prune_checkpoints(ckpt_dir: str, keep: int) -> None:

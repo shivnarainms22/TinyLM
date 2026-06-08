@@ -94,6 +94,17 @@ def _save_compiled_seed_checkpoint(path, cfg, saved_step):
                     optimizers, loader, vars(cfg))
 
 
+class _FakeCompiled(torch.nn.Module):
+    """Stand-in for torch.compile's OptimizedModule: the real module lives under
+    `_orig_mod`, so its state_dict keys are '_orig_mod.<name>'. Lets us reproduce
+    the GPU compiled-model path on CPU without invoking the inductor backend
+    (unavailable / flaky on Windows)."""
+
+    def __init__(self, module):
+        super().__init__()
+        self._orig_mod = module
+
+
 # ── cosine_lr tests ─────────────────────────────────────────────────────────
 
 def test_cosine_lr_warmup():
@@ -294,6 +305,47 @@ def test_train_resume_after_init_continues(tmp_path, monkeypatch):
         f"resume after init did not continue the trajectory "
         f"(got step {ckpt['step']}, expected 4)"
     )
+
+
+def test_load_weights_into_compiled_model_from_plain_checkpoint(tmp_path):
+    """Reproduces the E1 GPU crash: a torch.compile'd model (keys '_orig_mod.*')
+    loading a plain-key Run D checkpoint must still match — load_model_weights
+    has to unwrap the compile wrapper, not just strip the checkpoint."""
+    from tinylm.train import train_step, save_checkpoint, load_model_weights
+
+    shard_dir = _make_shards(tmp_path)
+    cfg = _tiny_cfg(shard_dir, total_steps=2)
+
+    source_model, source_opts, source_loader = _build_training_components(cfg)
+    source_model.train()
+    train_step(source_model, source_loader.next_batch(), source_opts, cfg, step=0)
+    ckpt_path = str(tmp_path / "run_d_plain.pt")  # eager save -> plain keys
+    save_checkpoint(ckpt_path, 0, source_model, source_opts, source_loader, vars(cfg))
+
+    target_inner, _, _ = _build_training_components(cfg)
+    compiled = _FakeCompiled(target_inner)  # expects '_orig_mod.*' keys
+
+    load_model_weights(compiled, ckpt_path)
+
+    for expected, actual in zip(source_model.parameters(), target_inner.parameters()):
+        assert torch.allclose(expected, actual)
+
+
+def test_load_weights_into_compiled_model_from_compiled_checkpoint(tmp_path):
+    """The other compile combination: compiled model + '_orig_mod.'-prefixed
+    checkpoint also loads cleanly (prefix normalized, then unwrapped)."""
+    from tinylm.train import load_model_weights
+
+    shard_dir = _make_shards(tmp_path)
+    cfg = _tiny_cfg(shard_dir, total_steps=2)
+    seed = str(tmp_path / "seed_prefixed.pt")
+    _save_compiled_seed_checkpoint(seed, cfg, saved_step=0)
+
+    target_inner, _, _ = _build_training_components(cfg)
+    compiled = _FakeCompiled(target_inner)
+
+    load_model_weights(compiled, seed)  # must not raise on key mismatch
+    assert torch.isfinite(next(target_inner.parameters())).all()
 
 
 def test_prune_checkpoints_keeps_last_n(tmp_path):
