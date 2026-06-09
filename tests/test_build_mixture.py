@@ -83,3 +83,11 @@ def test_mixture_per_source_skip_excludes_prefix(tmp_path):
     toks = set(_load_shards(tmp_path))
     assert 7 not in toks, "skipped prefix leaked into mixed shards"
     assert 1 in toks and 2 in toks
+
+
+def test_source_registry_weights_and_skip():
+    """Mix weights sum to 1 and only FineWeb-Edu skips Run D's 8B prefix."""
+    weights = {n: spec[3] for n, spec in bm.SOURCES.items()}
+    assert abs(sum(weights.values()) - 1.0) < 1e-9, weights
+    assert bm.SOURCES["fineweb_edu"][4] == 8_000_000_000
+    assert all(spec[4] == 0 for n, spec in bm.SOURCES.items() if n != "fineweb_edu")

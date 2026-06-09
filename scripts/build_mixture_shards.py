@@ -106,21 +106,30 @@ def build_mixture(sources, encode, out_dir, *, weights, eos_id,
     }
 
 
-# ── source registry (ungated, streamable) ───────────────────────────────────
-# (repo, config, text_key, weight, skip_tokens)
+# ── source registry (ungated, parquet-native — no loader scripts) ────────────
+# (repo, config, text_key, weight, skip_tokens). datasets>=4 dropped script-based
+# datasets, so every source here must ship parquet/data files, not a *.py loader.
 SOURCES = {
-    "fineweb_edu": ("HuggingFaceFW/fineweb-edu", "sample-100BT", "text", 0.55, 8_000_000_000),
-    "web":         ("HuggingFaceFW/fineweb",     "sample-100BT", "text", 0.20, 0),
-    "code":        ("codeparrot/github-code-clean", "all-all",   "code", 0.15, 0),
-    "math":        ("open-web-math/open-web-math", None,         "text", 0.10, 0),
+    "fineweb_edu": ("HuggingFaceFW/fineweb-edu", "sample-100BT",  "text",    0.55, 8_000_000_000),
+    "web":         ("HuggingFaceFW/fineweb",     "sample-100BT",  "text",    0.20, 0),
+    "code":        ("codeparrot/codeparrot-clean", None,          "content", 0.15, 0),
+    "math":        ("HuggingFaceTB/finemath",    "finemath-3plus", "text",   0.10, 0),
 }
+
+_TEXT_KEY_FALLBACKS = ("text", "content", "code", "raw_content")
 
 
 def _hf_stream(repo, config, text_key):
+    """Stream a dataset yielding {"text": ...}. Robust to the text column name:
+    prefers `text_key`, else the first non-empty known field."""
     from datasets import load_dataset
     ds = load_dataset(repo, name=config, split="train", streaming=True)
     for sample in ds:
-        yield {"text": sample[text_key]}
+        t = sample.get(text_key)
+        if not t:
+            t = next((sample[k] for k in _TEXT_KEY_FALLBACKS if sample.get(k)), "")
+        if t:
+            yield {"text": t}
 
 
 def main() -> None:
