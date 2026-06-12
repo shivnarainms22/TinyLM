@@ -106,15 +106,33 @@ def build_mixture(sources, encode, out_dir, *, weights, eos_id,
     }
 
 
-# ── source registry (ungated, parquet-native — no loader scripts) ────────────
+# ── source registries (ungated, parquet-native — no loader scripts) ──────────
 # (repo, config, text_key, weight, skip_tokens). datasets>=4 dropped script-based
 # datasets, so every source here must ship parquet/data files, not a *.py loader.
-SOURCES = {
-    "fineweb_edu": ("HuggingFaceFW/fineweb-edu", "sample-100BT",  "text",    0.55, 8_000_000_000),
-    "web":         ("HuggingFaceFW/fineweb",     "sample-100BT",  "text",    0.20, 0),
-    "code":        ("codeparrot/codeparrot-clean", None,          "content", 0.15, 0),
-    "math":        ("HuggingFaceTB/finemath",    "finemath-3plus", "text",   0.10, 0),
+# In every recipe only the FineWeb-Edu slice skips Run D's exact 8B prefix, so the
+# probe data stays provably disjoint from the base model's training set.
+RECIPES = {
+    # E2: broader web/code/math mixture.
+    "e2": {
+        "fineweb_edu": ("HuggingFaceFW/fineweb-edu", "sample-100BT",  "text",    0.55, 8_000_000_000),
+        "web":         ("HuggingFaceFW/fineweb",     "sample-100BT",  "text",    0.20, 0),
+        "code":        ("codeparrot/codeparrot-clean", None,          "content", 0.15, 0),
+        "math":        ("HuggingFaceTB/finemath",    "finemath-3plus", "text",   0.10, 0),
+    },
+    # E3: E2 recipe rebalanced to make room for a 15% teacher-distilled slice.
+    # `distill` = Cosmopedia-v2 (smollm-corpus), Mixtral-8x7B-generated synthetic
+    # textbooks/explanations/QA — flowing pretraining-style prose, not chat.
+    "e3": {
+        "fineweb_edu": ("HuggingFaceFW/fineweb-edu", "sample-100BT",  "text",    0.45, 8_000_000_000),
+        "web":         ("HuggingFaceFW/fineweb",     "sample-100BT",  "text",    0.20, 0),
+        "code":        ("codeparrot/codeparrot-clean", None,          "content", 0.10, 0),
+        "math":        ("HuggingFaceTB/finemath",    "finemath-3plus", "text",   0.10, 0),
+        "distill":     ("HuggingFaceTB/smollm-corpus", "cosmopedia-v2", "text",  0.15, 0),
+    },
 }
+
+# Back-compat alias: the original E2 registry.
+SOURCES = RECIPES["e2"]
 
 _TEXT_KEY_FALLBACKS = ("text", "content", "code", "raw_content")
 
@@ -136,7 +154,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--max-shards", type=int, default=21)
+    parser.add_argument("--recipe", choices=sorted(RECIPES), default="e2",
+                        help="Which source mixture to build (default: e2).")
     args = parser.parse_args()
+
+    sources_registry = RECIPES[args.recipe]
 
     from transformers import AutoTokenizer
 
@@ -146,7 +168,7 @@ def main() -> None:
 
     # Fail fast: confirm every source streams a first document before the long run.
     streams, weights, skips = {}, {}, {}
-    for name, (repo, config, text_key, weight, skip) in SOURCES.items():
+    for name, (repo, config, text_key, weight, skip) in sources_registry.items():
         print(f"Probing source {name}: {repo} ({config}) ...")
         gen = _hf_stream(repo, config, text_key)
         first = next(gen)
@@ -164,11 +186,12 @@ def main() -> None:
     write_manifest(
         args.out_dir,
         kind="mixture",
-        sources={n: SOURCES[n][0] for n in SOURCES},
-        target_weights={n: SOURCES[n][3] for n in SOURCES},
+        recipe=args.recipe,
+        sources={n: sources_registry[n][0] for n in sources_registry},
+        target_weights={n: sources_registry[n][3] for n in sources_registry},
         tokenizer="meta-llama/Llama-2-7b-hf",
         shard_size=SHARD_SIZE,
-        fineweb_edu_skip_tokens=SOURCES["fineweb_edu"][4],
+        fineweb_edu_skip_tokens=sources_registry["fineweb_edu"][4],
         **stats,
     )
     print(f"Done. {stats['shards_written']} shards. proportions={stats['proportions']}")

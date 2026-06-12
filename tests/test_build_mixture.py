@@ -91,3 +91,24 @@ def test_source_registry_weights_and_skip():
     assert abs(sum(weights.values()) - 1.0) < 1e-9, weights
     assert bm.SOURCES["fineweb_edu"][4] == 8_000_000_000
     assert all(spec[4] == 0 for n, spec in bm.SOURCES.items() if n != "fineweb_edu")
+
+
+def test_recipes_e2_and_e3_registered():
+    """Both probe recipes exist; e2 is the back-compat default alias of SOURCES."""
+    assert bm.RECIPES["e2"] is bm.SOURCES
+    assert set(bm.RECIPES) >= {"e2", "e3"}
+
+
+def test_e3_recipe_adds_teacher_distill_slice():
+    """E3 = 45/20/10/10/15 over FWE/web/code/math/distill; weights sum to 1, the
+    distill slice is teacher-generated synthetic text (Cosmopedia-v2), and only the
+    FineWeb-Edu slice skips Run D's 8B prefix (disjoint from the base model)."""
+    e3 = bm.RECIPES["e3"]
+    weights = {n: spec[3] for n, spec in e3.items()}
+    assert abs(sum(weights.values()) - 1.0) < 1e-9, weights
+    assert "distill" in e3, "E3 must add a teacher-distilled slice"
+    repo, config, _text, weight, skip = e3["distill"]
+    assert weight == 0.15 and skip == 0
+    assert repo == "HuggingFaceTB/smollm-corpus" and config == "cosmopedia-v2"
+    assert e3["fineweb_edu"][4] == 8_000_000_000
+    assert all(spec[4] == 0 for n, spec in e3.items() if n != "fineweb_edu")
