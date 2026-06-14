@@ -1,0 +1,49 @@
+# TinyLM v2 Run E3-FULL: full continuation on the winning distill-mix recipe.
+# The 3 probes (E1/E2/E3) settled the recipe: E3 distill-mix was best on every metric,
+# with a significant LAMBADA gain but flat commonsense reasoning at 2.1B. This run tests
+# the one open question: does reasoning move with MORE tokens, or only language modeling?
+# ~7.3B tokens (~3.5x the probe, ~Run D's own 8B budget) on the E3 recipe, init_from Run D.
+run_name: phase_v2_E3_distill_mix_full
+attention: mla
+optimizer: muon
+
+# Same 275M Run D architecture.
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+# init_from is supplied by submit_hpc.sh arg 4 (Run D step_22999.pt); shard_dir by arg 5.
+init_from: null
+resume_from: null
+
+# 80-shard (8.0B) non-repeating E3 distill-mix set built by tokenize_v2_e3_full_job.sh.
+shard_dir: data/v2/distill_mix_full
+batch_size: 16
+grad_accum_steps: 32
+seq_len: 2048
+
+# ~7.34B processed tokens: 7000 * 16 * 32 * 2048 = 7.34B (< 8.0B built, no repetition).
+total_steps: 7000
+warmup_steps: 350
+
+# Conservative continuation LR, identical to the probes (no new variable vs E1/E2/E3).
+lr_muon: 0.006
+lr_adamw: 0.0003
+weight_decay: 0.1
+grad_clip: 1.0
+
+log_every: 10
+# Eval cadence ~1.84B tokens: checkpoints at steps 1750 / 3500 / 5250 / 6999.
+save_every: 1750
+keep_checkpoints: 5
+wandb_project: tinylm-v2
+
+compile: true
+use_bf16: true
+grad_checkpoint: false
