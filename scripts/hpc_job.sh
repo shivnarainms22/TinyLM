@@ -45,6 +45,15 @@ NEXT=$(sbatch --dependency=afterany:"${SLURM_JOB_ID}" --job-name="${RUN_NAME}" \
 echo "Next segment queued as ${NEXT}."
 
 cd "${RUN_DIR}"   # checkpoints/ is written here, relative to cwd
-python -m tinylm.train "${REPO}/${CONFIG}" \
-    || echo "Training exited non-zero (SIGTERM save is normal)."
+# --signal=B:SIGTERM@120 delivers SIGTERM to THIS batch shell ~120s before the
+# wall, not to the python child. Run training in the background and forward the
+# signal so python's handler checkpoints last.pt at the next step boundary; the
+# next segment then resumes from the true last step instead of redoing the steps
+# since the last periodic save. (save_every still guarantees a checkpoint floor.)
+python -m tinylm.train "${REPO}/${CONFIG}" &
+TRAIN_PID=$!
+trap 'echo "[job] wall approaching — forwarding SIGTERM to train pid ${TRAIN_PID}"; kill -TERM "${TRAIN_PID}" 2>/dev/null || true' TERM
+# wait is interrupted when the trap fires; loop until the child truly exits so we
+# never tear the job down mid-checkpoint-write.
+while kill -0 "${TRAIN_PID}" 2>/dev/null; do wait "${TRAIN_PID}" || true; done
 echo "=== ${RUN_NAME} job ${SLURM_JOB_ID} done $(date) ==="
