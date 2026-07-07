@@ -5,11 +5,11 @@
 # Submit and walk away:  sbatch scripts/eval_e3full.sh
 # JSONs land in ~/TinyLM/results/v2/run_E3full_step<N>_eval.json.
 #SBATCH --job-name=eval_e3full
-#SBATCH --partition=gpu-short
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --time=3:00:00
+#SBATCH --time=5:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --output=/scratch/%u/tinylm/logs/eval_e3full_%j.log
