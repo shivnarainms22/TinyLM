@@ -195,6 +195,8 @@ def parse_args() -> argparse.Namespace:
         help="HuggingFace tokenizer name or local path",
     )
     p.add_argument("--tasks", default=",".join(TASKS), help="Comma-separated task list")
+    p.add_argument("--num-fewshot", type=int, default=0,
+                   help="Number of in-context few-shot examples (default 0 = zero-shot)")
     p.add_argument("--batch-size", type=int, default=16, help="Eval batch size")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--output", default="results/eval.json", help="Path to save results JSON")
@@ -213,10 +215,11 @@ def main() -> None:
     )
     print(f"Model loaded on {args.device}. Running tasks: {args.tasks}")
 
+    print(f"Model loaded on {args.device}. num_fewshot={args.num_fewshot}")
     results = simple_evaluate(
         model=model,
         tasks=args.tasks.split(","),
-        num_fewshot=0,
+        num_fewshot=args.num_fewshot,
         log_samples=False,
     )
 
