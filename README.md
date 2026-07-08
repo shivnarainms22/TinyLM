@@ -88,6 +88,42 @@ also published at `Shiv-22/tinylm` with model card.
 
 ---
 
+## v2 — Continued Pretraining from Data Quality (separate track)
+
+> A follow-up experiment layered **on top of** the winning ablation model — **not**
+> part of the locked A/B/C/D ablation, and reported separately. The pinned hypothesis
+> above is unchanged.
+
+**Question:** can Run D (275M MLA+Muon) be improved purely by *better data* via continued
+pretraining (`init_from` weights, optimizer/loader/step reset)? Three controlled 2.1B-token
+probes isolated data composition as the only variable — **E1** fresh FineWeb-Edu, **E2** a
+broader web/code/math mixture, **E3** that mixture plus a 15% teacher-distilled slice
+(Cosmopedia-v2) — then the winning E3 recipe was scaled to a full **7.34B-token** run
+(~Run D's own token budget).
+
+**Finding: data quality is a real lever for language modeling, but not for commonsense
+reasoning at 275M — even at a matched token budget.**
+
+| Metric | Run D (base) | E3 probe (2.1B) | **E3 full (7.3B)** | Δ vs base | Past noise? |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| LAMBADA perplexity ↓ | 26.54 | 23.95 | **23.20** | −3.34 | ✅ ~4σ (project best) |
+| LAMBADA acc | 0.3681 | 0.3860 | **0.3901** | +0.0220 | ✅ ~3σ |
+| HellaSwag acc_norm | 0.4123 | 0.4079 | **0.4125** | +0.0002 | ❌ flat |
+| ARC-Easy acc_norm | 0.5122 | 0.5181 | **0.5080** | −0.0042 | ❌ flat |
+| Winogrande (acc) | 0.5130 | 0.5209 | **0.5146** | +0.0016 | ❌ flat |
+
+LAMBADA (language modeling) improves monotonically with data quality **and** scale,
+plateauing by ~5.5B tokens. Commonsense-MCQ reasoning stayed flat across every recipe and
+both token budgets — evidence that reasoning at this scale is **capacity-bound, not
+data/token-bound**. An honest negative result: the defensible claim is the language-modeling
+gain, not a reasoning gain.
+
+Full detail (all metrics, per-checkpoint trajectories, significance, caveats):
+`results/v2/SUMMARY.md` and `results/v2/E{1,2,3}_vs_runD.md` + `results/v2/E3full_vs_runD.md`.
+Raw eval JSONs: `results/v2/run_E{1,2,3}_eval.json`, `results/v2/run_E3full_step*_eval.json`.
+
+---
+
 ## Results — v1 Run D (MLA + Muon, 1B×21 tokens, historical)
 
 > Preserved for contrast vs the HPC re-run above. The v1 effort trained on
@@ -140,3 +176,5 @@ contrast above.)
 - [x] HPC Re-run — All 4 arms trained (23k steps each, 8B unique tokens, Explorer A100-40GB)
 - [x] HPC Re-run — All 4 arms evaled (full 2×2 ablation in `results/hpc_rerun_ablation.md`)
 - [x] HF model cards published — main, ablation checkpoints, v1 historical
+- [x] v2 — Data-quality continued-pretraining probes (E1/E2/E3, 2.1B tokens each)
+- [x] v2 — Full E3 distill-mix run (7.3B tokens) + milestone evals — LM gain, reasoning flat

@@ -74,6 +74,18 @@ pretraining on better/distilled data buys perplexity, not commonsense reasoning.
   slice). "Reasoning flat" means *commonsense-MCQ* reasoning. A held-out code/math perplexity
   diagnostic under `results/v2/dev/` would de-blind this; not yet run.
 
+## Appendix — complete raw metrics (every task, every checkpoint)
+
+All values as reported by lm-eval (`results/v2/run_E3full_step*_eval.json`); stderr omitted
+here (in the JSONs). Metric-matched to the locked suite.
+
+| Checkpoint | Tokens | ARC-E acc | ARC-E acc_norm | HellaSwag acc | HellaSwag acc_norm | LAMBADA ppl | LAMBADA acc | Winogrande acc |
+|-----------|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+| step_01749 | 1.84B | 0.5774 | 0.5143 | 0.3408 | 0.4072 | 25.2267 | 0.3796 | 0.5170 |
+| step_03499 | 3.67B | 0.5745 | 0.5139 | 0.3411 | 0.4086 | 24.1784 | 0.3788 | 0.5233 |
+| step_05249 | 5.51B | 0.5762 | 0.5072 | 0.3416 | 0.4104 | 23.2396 | 0.3918 | 0.5193 |
+| step_06999 | 7.34B | 0.5753 | 0.5080 | 0.3421 | 0.4125 | 23.1998 | 0.3901 | 0.5146 |
+
 ## Artifacts
 - `results/v2/run_E3full_step{01749,03499,05249,06999}_eval.json` — full lm-eval output.
 - Probe series: `results/v2/E1_vs_runD.md`, `E2_vs_runD.md`, `E3_vs_runD.md`; summary `SUMMARY.md`.
