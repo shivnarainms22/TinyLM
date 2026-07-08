@@ -2,10 +2,12 @@
 
 **One-line takeaway:** Starting from the best ablation model (Run D, 275M MLA+Muon), we
 tested whether *better data* improves it via continued pretraining. Across three controlled
-2.1B-token probes, **better data is a real, significant lever for language modeling
-(perplexity), but does not move commonsense-reasoning benchmarks at this budget.** The best
-recipe — a teacher-distilled mixture (E3) — is now being scaled to a full ~7.3B-token run to
-test whether reasoning moves with more tokens.
+2.1B-token probes **and** one full 7.3B-token run, **better data is a real, significant lever
+for language modeling (perplexity), but does not move commonsense-reasoning benchmarks — even
+at Run D's own ~7B-token budget.** The full E3 run drove LAMBADA perplexity to **23.20** (the
+project's best, −3.34 vs Run D, ~4σ) while HellaSwag acc_norm ended at **0.4125 — statistically
+identical to the Run D starting point (0.4123).** Reasoning at 275M is capacity/scale-bound, not
+token-bound; the defensible claim is the **language-modeling gain, not a reasoning gain.**
 
 ---
 
@@ -75,18 +77,28 @@ benchmarks are insensitive to data recipe.
 
 ---
 
-## What's next: the full E3 run
+## The full E3 run: the token-count verdict (DONE)
 
-E3's distill-mixture is the unambiguous winner, so we scale it: **~7.3B tokens (7000 steps),
-init_from Run D, same recipe and LR**, eval every ~1.8B tokens. It tests the one question the
-probes left open: **does commonsense reasoning move with more tokens, or only language modeling?**
+E3's distill-mixture was the unambiguous probe winner, so we scaled it: **7.34B tokens (7000
+steps), init_from Run D, same recipe and LR**, evaluated at ~1.8B/3.7B/5.5B/7.3B tokens. It
+tested the one question the probes left open. **The answer: only language modeling moves.**
 
-- **Config:** `configs/v2/run_E3_distill_mix_full.yaml`
-- **Data:** 80-shard (8.0B) non-repeating set from `scripts/tokenize_v2_e3_full_job.sh`
-- **Hard stop:** if HellaSwag acc_norm *and* LAMBADA both flatten for two consecutive evals,
-  stop — the defensible portfolio claim is then the **language-modeling gain**, not a reasoning
-  gain. The pinned hypothesis is never edited to match results.
+| Metric | Run D (base) | E3 probe (2.1B) | **E3-full (7.3B)** | Δ vs base | Significant? |
+|---|---:|---:|---:|---:|:--:|
+| LAMBADA perplexity ↓ | 26.54 | 23.95 | **23.20** | **−3.34** | ✅ ~4σ (project best) |
+| LAMBADA acc | 0.3681 | 0.3860 | **0.3901** | **+0.0220** | ✅ ~3σ |
+| HellaSwag acc_norm | 0.4123 | 0.4079 | **0.4125** | +0.0002 | ❌ flat |
+| ARC-Easy acc_norm | 0.5122 | 0.5181 | **0.5080** | −0.0042 | ❌ flat |
+| Winogrande | 0.5130 | 0.5209 | **0.5146** | +0.0016 | ❌ flat |
 
-## Per-probe detail
-- `results/v2/E1_vs_runD.md`, `results/v2/E2_vs_runD.md`, `results/v2/E3_vs_runD.md`
-- Raw eval JSONs: `results/v2/run_E{1,2,3}_eval.json`; base: `results/run_D_eval.json`
+- **LM improves monotonically with tokens** (ppl 25.23 → 24.18 → 23.24 → 23.20), plateauing by
+  ~5.5B — clear diminishing returns.
+- **Reasoning is flat even at 7.3B.** HellaSwag acc_norm ended statistically identical to where
+  Run D began. Reasoning at 275M is **capacity/scale-bound, not token-bound**.
+- Per the pre-committed **hard stop**, the defensible claim is the language-modeling gain, not a
+  reasoning gain. The pinned hypothesis is never edited to match results.
+- Full detail: `results/v2/E3full_vs_runD.md`.
+
+## Per-probe / per-run detail
+- `results/v2/E1_vs_runD.md`, `E2_vs_runD.md`, `E3_vs_runD.md`, `E3full_vs_runD.md`
+- Raw eval JSONs: `results/v2/run_E{1,2,3}_eval.json`, `run_E3full_step{01749,03499,05249,06999}_eval.json`; base: `results/run_D_eval.json`
