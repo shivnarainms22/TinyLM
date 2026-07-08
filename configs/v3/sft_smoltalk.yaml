@@ -1,0 +1,18 @@
+# TinyLM v3 SFT — SmolTalk supervised fine-tuning
+# Run with: python -m tinylm.sft configs/v3/sft_smoltalk.yaml
+#
+# Set init_from to the Run D (or E3-full) checkpoint to warm-start.
+# Set out_dir to a path on your working storage (e.g. /scratch/$USER/tinylm/sft).
+init_from: null          # e.g. checkpoints/step_22999.pt
+out_dir: outputs/sft     # checkpoints saved to out_dir/checkpoints/
+
+dataset: HuggingFaceTB/smoltalk
+
+lr: 2.0e-5
+weight_decay: 0.1
+epochs: 3
+batch_size: 16
+max_len: 2048
+warmup_ratio: 0.03
+save_every: 500
+wandb_project: tinylm-v3
