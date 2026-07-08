@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 8h SLURM segment for one TinyLM run. Submit via scripts/submit_hpc.sh.
 # Pre-emptively chains the next segment; resumes from checkpoints/last.pt.
-# Env injected by submit: RUN_NAME, CONFIG, TOTAL_STEPS
+# Env injected by submit: RUN_NAME, CONFIG, TOTAL_STEPS, optional INIT_FROM/SHARD_DIR
 #SBATCH --partition=gpu
 #SBATCH --time=7:50:00
 #SBATCH --nodes=1
@@ -22,7 +22,10 @@ source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate tinylm
 export PATH="${HOME}/.conda/envs/tinylm/bin:${PATH}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export WANDB_DIR="${SCRATCH}/wandb"
-export TINYLM_SHARD_DIR="${SCRATCH}/tinylm/data"
+export TINYLM_SHARD_DIR="${SHARD_DIR:-${SCRATCH}/tinylm/data}"
+if [[ -n "${INIT_FROM:-}" ]]; then
+    export TINYLM_INIT_FROM="${INIT_FROM}"
+fi
 
 # Early-exit if this run already reached TOTAL_STEPS.
 if [[ -f "${CKPT}" ]]; then
@@ -37,11 +40,20 @@ fi
 # Pre-emptively queue the next segment (survives a hard SIGKILL at the wall).
 NEXT=$(sbatch --dependency=afterany:"${SLURM_JOB_ID}" --job-name="${RUN_NAME}" \
     --output="${LOG_DIR}/${RUN_NAME}_%j.log" \
-    --export=ALL,RUN_NAME="${RUN_NAME}",CONFIG="${CONFIG}",TOTAL_STEPS="${TOTAL_STEPS}" \
+    --export=ALL,RUN_NAME="${RUN_NAME}",CONFIG="${CONFIG}",TOTAL_STEPS="${TOTAL_STEPS}",INIT_FROM="${INIT_FROM:-}",SHARD_DIR="${SHARD_DIR:-}" \
     "${REPO}/scripts/hpc_job.sh" | awk '{print $NF}')
 echo "Next segment queued as ${NEXT}."
 
 cd "${RUN_DIR}"   # checkpoints/ is written here, relative to cwd
-python -m tinylm.train "${REPO}/${CONFIG}" \
-    || echo "Training exited non-zero (SIGTERM save is normal)."
+# --signal=B:SIGTERM@120 delivers SIGTERM to THIS batch shell ~120s before the
+# wall, not to the python child. Run training in the background and forward the
+# signal so python's handler checkpoints last.pt at the next step boundary; the
+# next segment then resumes from the true last step instead of redoing the steps
+# since the last periodic save. (save_every still guarantees a checkpoint floor.)
+python -m tinylm.train "${REPO}/${CONFIG}" &
+TRAIN_PID=$!
+trap 'echo "[job] wall approaching — forwarding SIGTERM to train pid ${TRAIN_PID}"; kill -TERM "${TRAIN_PID}" 2>/dev/null || true' TERM
+# wait is interrupted when the trap fires; loop until the child truly exits so we
+# never tear the job down mid-checkpoint-write.
+while kill -0 "${TRAIN_PID}" 2>/dev/null; do wait "${TRAIN_PID}" || true; done
 echo "=== ${RUN_NAME} job ${SLURM_JOB_ID} done $(date) ==="

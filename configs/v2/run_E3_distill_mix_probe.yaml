@@ -1,0 +1,42 @@
+# TinyLM v2 Run E3: curated mixture plus teacher-distilled text probe.
+run_name: phase_v2_E3_distill_mix_probe
+attention: mla
+optimizer: muon
+
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+init_from: null
+resume_from: null
+
+# Prebuild mixed shards outside the trainer. Target recipe:
+# 45% fresh FineWeb-Edu, 20% high-quality general web, 10% code,
+# 10% math/STEM, 15% filtered teacher-distilled explanations/QA.
+shard_dir: data/v2/distill_mix_shards
+batch_size: 16
+grad_accum_steps: 32
+seq_len: 2048
+
+total_steps: 2000
+warmup_steps: 200
+
+lr_muon: 0.006
+lr_adamw: 0.0003
+weight_decay: 0.1
+grad_clip: 1.0
+
+log_every: 10
+save_every: 250
+keep_checkpoints: 4
+wandb_project: tinylm-v2
+
+compile: true
+use_bf16: true
+grad_checkpoint: false

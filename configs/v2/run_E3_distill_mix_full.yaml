@@ -1,0 +1,55 @@
+# TinyLM v2 Run E3-FULL: full continuation on the winning distill-mix recipe.
+# The 3 probes (E1/E2/E3) settled the recipe: E3 distill-mix was best on every metric,
+# with a significant LAMBADA gain but flat commonsense reasoning at 2.1B. This run tests
+# the one open question: does reasoning move with MORE tokens, or only language modeling?
+# ~7.3B tokens (~3.5x the probe, ~Run D's own 8B budget) on the E3 recipe, init_from Run D.
+run_name: phase_v2_E3_distill_mix_full
+attention: mla
+optimizer: muon
+
+# Same 275M Run D architecture.
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+# init_from is supplied by submit_hpc.sh arg 4 (Run D step_22999.pt); shard_dir by arg 5.
+init_from: null
+resume_from: null
+
+# 80-shard (8.0B) non-repeating E3 distill-mix set built by tokenize_v2_e3_full_job.sh.
+shard_dir: data/v2/distill_mix_full
+batch_size: 16
+grad_accum_steps: 32
+seq_len: 2048
+
+# ~7.34B processed tokens: 7000 * 16 * 32 * 2048 = 7.34B (< 8.0B built, no repetition).
+total_steps: 7000
+warmup_steps: 350
+
+# Conservative continuation LR, identical to the probes (no new variable vs E1/E2/E3).
+lr_muon: 0.006
+lr_adamw: 0.0003
+weight_decay: 0.1
+grad_clip: 1.0
+
+log_every: 10
+# save_every MUST be reachable within one 7h50m segment, else no checkpoint ever
+# lands and the run restart-loops from scratch. At ~52k tok/s a segment reaches
+# ~1300 steps; step 1750 (~9.9h) is unreachable -> the original 1750 looped for 9
+# days with zero progress. 875 lands a checkpoint at ~4.9h (safe margin to the wall)
+# AND its multiples still hit the intended eval milestones 1750 / 3500 / 5250 / 6999.
+save_every: 875
+# Retain all 8 numbered checkpoints (875..7000) so no eval milestone rotates away
+# before it is evaluated; last.pt is always kept regardless.
+keep_checkpoints: 9
+wandb_project: tinylm-v2
+
+compile: true
+use_bf16: true
+grad_checkpoint: false
