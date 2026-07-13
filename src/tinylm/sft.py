@@ -28,6 +28,7 @@ import torch.nn.functional as F
 import yaml
 
 from tinylm.loader import load_from_checkpoint
+from tinylm.losses import chunked_cross_entropy
 from tinylm.model import ModelConfig
 
 
@@ -143,10 +144,26 @@ def sft_loss(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
 
     The causal shift (predict token t+1 from position t) is applied here:
         logits[:, :-1]  vs  labels[:, 1:]
+
+    Uses the chunked CE: F.cross_entropy's internal fp32 upcast of a
+    (B*T, 32000) tensor is several GB at the training batch size and OOMs a
+    40GB A100.
     """
     shift_logits = logits[:, :-1].contiguous().reshape(-1, logits.size(-1))
     shift_labels = labels[:, 1:].contiguous().reshape(-1)
-    return F.cross_entropy(shift_logits, shift_labels, ignore_index=-100)
+    return chunked_cross_entropy(shift_logits, shift_labels, ignore_index=-100)
+
+
+def apply_grad_checkpoint(model: object, enabled: bool) -> None:
+    """Toggle activation checkpointing on a loaded model, in place.
+
+    load_from_checkpoint rebuilds ModelConfig from the fields stored in the
+    checkpoint, which do not include use_checkpoint — so it silently defaults
+    to False. Pretraining could afford that on an 80GB A100; SFT carries
+    optimizer state for every parameter and must survive a 40GB card, so it
+    recomputes activations instead of storing them.
+    """
+    model.cfg.use_checkpoint = enabled
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +183,20 @@ class SFTConfig:
     save_every: int = 500
     out_dir: str = "outputs/sft"
     wandb_project: str = "tinylm-v3"
+    grad_checkpoint: bool = True
+    max_steps: int = 0          # 0 = full epochs; else hard step budget
+
+
+def resolve_total_steps(n_rows: int, batch_size: int, epochs: int,
+                        max_steps: int, keep_ratio: float = 0.8) -> int:
+    """Steps the run will actually take — what the cosine LR must anneal over.
+
+    A full 3-epoch pass over SmolTalk is ~165k steps, but only ~30k fit in the
+    8h walltime; scheduling over the former leaves the LR pinned near its peak
+    for the whole run. max_steps caps the schedule to the reachable budget.
+    """
+    approx = max(1, int(n_rows * keep_ratio) // batch_size) * epochs
+    return min(approx, max_steps) if max_steps > 0 else approx
 
 
 def load_sft_config(path: str) -> SFTConfig:
@@ -251,6 +282,7 @@ def run_sft(cfg: SFTConfig) -> None:
     use_bf16 = device == "cuda"
 
     model = load_from_checkpoint(cfg.init_from, device)
+    apply_grad_checkpoint(model, cfg.grad_checkpoint)
     model.train()
     V = model.cfg.vocab_size
 
@@ -271,8 +303,9 @@ def run_sft(cfg: SFTConfig) -> None:
         n_rows = 0  # streaming — unknown
 
     # Rough estimate: assume ~80% of rows pass the max_len filter
-    approx_steps_per_epoch = max(1, int(n_rows * 0.8) // cfg.batch_size)
-    total_steps = approx_steps_per_epoch * cfg.epochs
+    total_steps = resolve_total_steps(
+        n_rows, cfg.batch_size, cfg.epochs, cfg.max_steps
+    )
     warmup_steps = max(1, int(total_steps * cfg.warmup_ratio))
 
     # WandB (guarded)
@@ -340,8 +373,17 @@ def run_sft(cfg: SFTConfig) -> None:
                     os.path.join(ckpt_dir, f"step_{step:06d}.pt"),
                     step, model,
                 )
+                # Mirror to last.pt on every periodic save: the walltime can kill
+                # this job at any point, and the eval job loads last.pt.
+                _save_sft_checkpoint(os.path.join(ckpt_dir, "last.pt"), step, model)
 
             step += 1
+
+            if cfg.max_steps > 0 and step >= cfg.max_steps:
+                break
+
+        if cfg.max_steps > 0 and step >= cfg.max_steps:
+            break
 
         # Save at epoch end
         _save_sft_checkpoint(

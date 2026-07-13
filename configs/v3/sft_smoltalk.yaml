@@ -10,9 +10,19 @@ dataset: HuggingFaceTB/smoltalk
 
 lr: 2.0e-5
 weight_decay: 0.1
-epochs: 3
+epochs: 1               # not binding — max_steps below caps the run inside epoch 1
 batch_size: 16
 max_len: 2048
 warmup_ratio: 0.03
-save_every: 500
+save_every: 2000
 wandb_project: tinylm-v3
+
+# Recompute activations instead of storing them. Without this a 16x2048 batch
+# needs ~37GB of activations alone and OOMs the 40GB A100s on Explorer
+# (--gres=gpu:a100:1 gives you either a 40GB or an 80GB card).
+grad_checkpoint: true
+
+# Hard step budget: ~30k steps fit in the 8h walltime, so a 3-epoch schedule
+# (~165k steps) would never anneal the LR. 20k steps = ~655M tokens of SmolTalk,
+# a full SFT budget that finishes inside the wall with the cosine fully decayed.
+max_steps: 20000
