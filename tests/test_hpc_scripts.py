@@ -79,6 +79,16 @@ def test_v3_jobs_sanitize_inherited_interpreter_env():
         )
 
 
+def test_setup_hpc_rebuilds_a_broken_env_instead_of_skipping_it():
+    """`conda env list` showing 'tinylm' does not mean the env works: ~/.conda
+    lives on /scratch, and a purge reaped the stdlib .py sources (leaving
+    __pycache__), so python died at startup. Setup must verify the interpreter
+    runs and recreate the env if it does not."""
+    body = _read(ROOT / "scripts" / "setup_hpc.sh")
+    assert "conda run -n tinylm python" in body, "setup does not health-check the interpreter"
+    assert "conda env remove -n tinylm" in body, "setup cannot recreate a broken env"
+
+
 def test_v3_multi_eval_jobs_fail_loudly_when_every_eval_fails():
     """The per-eval `|| ... continuing` guard must not let a job that produced
     nothing exit 0 — the job has to propagate a failure to SLURM."""

@@ -7,8 +7,20 @@ SCRATCH="/scratch/${USER}"
 
 module load anaconda3/2024.06
 source "$(conda info --base)/etc/profile.d/conda.sh"
+
+# An env can exist and still be unusable: ~/.conda is a symlink to /scratch, and
+# a scratch purge reaps stdlib .py sources by access time while leaving
+# __pycache__ behind (imports read the .pyc, so only the sources go stale).
+# Python then dies at startup with "no codec search functions registered".
+# Existence is not health — verify the interpreter before trusting the env.
 if conda env list | grep -q "^tinylm "; then
-    echo "conda env 'tinylm' exists — skipping create."
+    if conda run -n tinylm python -c "import encodings, sys" >/dev/null 2>&1; then
+        echo "conda env 'tinylm' exists and its interpreter runs — skipping create."
+    else
+        echo "conda env 'tinylm' exists but its interpreter is broken — recreating."
+        conda env remove -n tinylm -y
+        conda create -n tinylm python=3.11 -y
+    fi
 else
     conda create -n tinylm python=3.11 -y
 fi
