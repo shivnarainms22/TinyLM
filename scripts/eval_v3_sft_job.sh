@@ -23,6 +23,12 @@ module load anaconda3/2024.06 cuda/12.8.0
 source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate tinylm
 export PATH="${HOME}/.conda/envs/tinylm/bin:${PATH}"
 
+# sbatch inherits the submitting shell's env. A PYTHONHOME/PYTHONPATH left over
+# from another project points this interpreter at the wrong stdlib and it dies
+# with "LookupError: no codec search functions registered".
+unset PYTHONHOME PYTHONPATH
+python -c "import sys; print('interpreter:', sys.executable)"
+
 cd "${REPO}"
 mkdir -p results/v3
 

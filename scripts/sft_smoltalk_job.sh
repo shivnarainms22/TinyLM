@@ -30,6 +30,14 @@ export PATH="${HOME}/.conda/envs/tinylm/bin:${PATH}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export WANDB_DIR="${SCRATCH}/wandb"
 
+# sbatch inherits the submitting shell's env. A PYTHONHOME/PYTHONPATH left over
+# from another project points this interpreter at the wrong stdlib and it dies
+# with "LookupError: no codec search functions registered".
+unset PYTHONHOME PYTHONPATH
+python -c "import sys; print('interpreter:', sys.executable)"
+# --gres=gpu:a100:1 gives either a 40GB or an 80GB card; log which one we drew.
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+
 # Inject cluster paths without editing the YAML (apply_env_overrides in sft.py).
 export TINYLM_SFT_INIT_FROM="${SCRATCH}/tinylm/runs/phase_v2_E3_distill_mix_full/checkpoints/step_06999.pt"
 export TINYLM_SFT_OUT="${SCRATCH}/tinylm/runs/phase_v3_sft_smoltalk"
