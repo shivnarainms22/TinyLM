@@ -22,6 +22,25 @@ def test_hpc_job_accepts_phase_specific_init_and_shards():
     assert "INIT_FROM" in body
 
 
+def test_hpc_job_entry_module_is_configurable_and_defaults_to_train():
+    """The v4 KD probe reuses this rechain/SIGTERM job via TINYLM_MODULE; the
+    default must stay tinylm.train so every existing run is unchanged."""
+    body = _read(HPC_JOB)
+    assert 'python -m "${TINYLM_MODULE:-tinylm.train}"' in body
+
+
+def test_hpc_job_guards_the_scratch_purge_codec_failure():
+    assert "unset PYTHONHOME PYTHONPATH" in _read(HPC_JOB)
+
+
+def test_submit_kd_points_the_shared_job_at_the_kd_module():
+    body = _read(ROOT / "scripts" / "submit_kd.sh")
+    assert 'export TINYLM_MODULE="tinylm.kd"' in body
+    assert "submit_hpc.sh" in body
+    assert "configs/v4/run_KD_tinyllama_fwe.yaml" in body
+    assert "2000" in body                              # matches E1's 2.1B budget
+
+
 def test_submit_hpc_passes_optional_phase_env():
     body = _read(SUBMIT_HPC)
     assert 'INIT_FROM="${4:-}"' in body

@@ -88,15 +88,20 @@ class TrainConfig:
     compile: bool = False
 
 
-def load_config(path: str) -> TrainConfig:
-    """Load YAML config and raise ValueError on unknown keys."""
+def load_config(path: str, allowed_extra: Optional[set] = None) -> TrainConfig:
+    """Load YAML config and raise ValueError on unknown keys.
+
+    `allowed_extra` names keys that may appear in the file but are not TrainConfig
+    fields (e.g. the KD probe stores its hyperparameters in the same YAML); they
+    are tolerated here and ignored, while genuine typos still raise.
+    """
     with open(path) as f:
         d = yaml.safe_load(f)
     valid = {f.name for f in fields(TrainConfig)}
-    unknown = set(d.keys()) - valid
+    unknown = set(d.keys()) - valid - (allowed_extra or set())
     if unknown:
         raise ValueError(f"Unknown config keys: {sorted(unknown)}")
-    return TrainConfig(**d)
+    return TrainConfig(**{k: v for k, v in d.items() if k in valid})
 
 
 def apply_env_overrides(cfg: TrainConfig) -> TrainConfig:

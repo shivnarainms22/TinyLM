@@ -157,7 +157,8 @@ def run_kd(config_path: str) -> None:
     """
     from tinylm.train import apply_env_overrides, load_config, train
 
-    cfg = apply_env_overrides(load_config(config_path))
+    kd_keys = {f.name for f in dataclasses.fields(KDConfig)}
+    cfg = apply_env_overrides(load_config(config_path, allowed_extra=kd_keys))
     kd = load_kd_config(config_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"KD: teacher={kd.teacher_model} alpha={kd.kd_alpha} "

@@ -153,3 +153,31 @@ def test_load_kd_config_reads_hyperparams_and_ignores_train_keys(tmp_path):
     assert isinstance(cfg, KDConfig)
     assert (cfg.kd_alpha, cfg.kd_temperature, cfg.kd_topk) == (0.7, 3.0, 32)
     assert cfg.teacher_model == "some/teacher"
+
+
+def test_v4_config_loads_through_both_loaders():
+    """The shipped KD probe config parses as a TrainConfig (KD keys tolerated)
+    and as a KDConfig, and its budget matches the E1 control (2000 steps)."""
+    from tinylm.train import load_config
+
+    path = str(Path(__file__).parent.parent / "configs/v4/run_KD_tinyllama_fwe.yaml")
+    kd_keys = {"teacher_model", "kd_alpha", "kd_temperature", "kd_topk"}
+    train_cfg = load_config(path, allowed_extra=kd_keys)
+    kd_cfg = load_kd_config(path)
+
+    assert train_cfg.total_steps == 2000
+    assert train_cfg.batch_size * train_cfg.grad_accum_steps == 512  # == E1 effective
+    assert train_cfg.grad_checkpoint is True
+    assert kd_cfg.kd_topk == 64 and kd_cfg.kd_alpha == 0.5
+
+
+def test_load_config_still_rejects_genuine_typos(tmp_path):
+    """allowed_extra must not disable typo detection for real unknown keys."""
+    import pytest
+    import yaml
+    from tinylm.train import load_config
+
+    p = tmp_path / "bad.yaml"
+    p.write_text(yaml.safe_dump({"batch_size": 8, "btach_size": 9}))  # typo
+    with pytest.raises(ValueError, match="btach_size"):
+        load_config(str(p), allowed_extra={"teacher_model"})
