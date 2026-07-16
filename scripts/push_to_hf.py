@@ -2,12 +2,12 @@
 """Push TinyLM source + model card to Shiv-22/tinylm on HuggingFace.
 
 Creates the repo if it doesn't exist, then uploads:
-  hf/README.md        -> README.md
-  scripts/generate.py -> generate.py
-  src/tinylm/*.py     -> tinylm/*.py
+  docs/hf_model_card.md -> README.md
+  scripts/generate.py   -> generate.py
+  src/tinylm/*.py       -> tinylm/*.py
 
-The checkpoint (step_19999.pt) is NOT re-uploaded — the model card links
-to Shiv-22/tinylm-checkpoints where it already lives.
+The checkpoint is NOT re-uploaded — the model card links to the checkpoint
+repos where the weights already live.
 
 Usage:
     pip install huggingface_hub
@@ -36,7 +36,7 @@ def main() -> None:
     create_repo(repo_id, repo_type="model", exist_ok=True)
 
     uploads = [
-        (ROOT / "hf" / "README.md",           "README.md"),
+        (ROOT / "docs" / "hf_model_card.md",   "README.md"),
         (ROOT / "scripts" / "generate.py",     "generate.py"),
         (ROOT / "src" / "tinylm" / "__init__.py", "tinylm/__init__.py"),
         (ROOT / "src" / "tinylm" / "model.py",    "tinylm/model.py"),

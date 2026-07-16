@@ -59,6 +59,13 @@ Source & full results: [github.com/shivnarainms22/TinyLM](https://github.com/shi
 | Tied embeddings | Yes |
 | Precision | bfloat16 |
 
+**KV-cache reduction (MLA).** At inference MLA caches a compressed latent plus a
+decoupled RoPE key — `d_latent + d_rope = 576` values per token per layer — instead
+of an equivalent MHA's full K and V (`2·d_model = 2048`). That is a **3.56× smaller
+KV cache (71.9% reduction)**: 144.0 MiB → 40.5 MiB at full 2048-token context.
+Verified by `test_kv_cache_shape_incremental`; derivation in
+[`results/kv_cache_reduction.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/kv_cache_reduction.md).
+
 ## Training
 
 | | |

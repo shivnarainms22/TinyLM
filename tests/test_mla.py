@@ -192,8 +192,8 @@ def test_mla_mha_equivalence_at_identity_setting():
 def test_kv_cache_shape_incremental():
     """Defensive Test 8: when running token-at-a-time, the per-layer
     cached tensor must have last-dim width (d_latent + d_rope), NOT
-    (n_heads * head_dim). This is what produces the 3.5× KV-cache
-    reduction headline in Phase 5."""
+    (n_heads * head_dim). This is what produces the 3.56× KV-cache
+    reduction headline (see results/kv_cache_reduction.md)."""
     cfg = _small_cfg()
     mla = MLAttention(cfg)
     cos, sin = build_rope_cache(cfg.ctx, cfg.d_rope, cfg.rope_base)
