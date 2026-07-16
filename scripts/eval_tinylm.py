@@ -32,32 +32,12 @@ from lm_eval.api.model import LM
 from transformers import AutoTokenizer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from tinylm.model import ModelConfig, TinyLM
+from tinylm.loader import load_from_checkpoint
+from tinylm.model import TinyLM
 
 
 def _load_model(ckpt_path: str, device: str) -> TinyLM:
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-    c = ckpt["config"]
-    model = TinyLM(
-        ModelConfig(
-            n_layers=c["n_layers"],
-            d_model=c["d_model"],
-            n_heads=c["n_heads"],
-            d_latent=c["d_latent"],
-            d_rope=c["d_rope"],
-            ffn_hidden=c["ffn_hidden"],
-            ctx=c["ctx"],
-            vocab_size=c["vocab_size"],
-            tie_weights=c["tie_weights"],
-            attention=c["attention"],
-        )
-    )
-    state = ckpt["model"]
-    # torch.compile wraps keys with "_orig_mod." prefix — strip it
-    if any(k.startswith("_orig_mod.") for k in state):
-        state = {k.removeprefix("_orig_mod."): v for k, v in state.items()}
-    model.load_state_dict(state)
-    return model.to(device).eval()
+    return load_from_checkpoint(ckpt_path, device)
 
 
 class TinyLMEval(LM):
@@ -195,6 +175,8 @@ def parse_args() -> argparse.Namespace:
         help="HuggingFace tokenizer name or local path",
     )
     p.add_argument("--tasks", default=",".join(TASKS), help="Comma-separated task list")
+    p.add_argument("--num-fewshot", type=int, default=0,
+                   help="Number of in-context few-shot examples (default 0 = zero-shot)")
     p.add_argument("--batch-size", type=int, default=16, help="Eval batch size")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--output", default="results/eval.json", help="Path to save results JSON")
@@ -213,10 +195,11 @@ def main() -> None:
     )
     print(f"Model loaded on {args.device}. Running tasks: {args.tasks}")
 
+    print(f"Model loaded on {args.device}. num_fewshot={args.num_fewshot}")
     results = simple_evaluate(
         model=model,
         tasks=args.tasks.split(","),
-        num_fewshot=0,
+        num_fewshot=args.num_fewshot,
         log_samples=False,
     )
 

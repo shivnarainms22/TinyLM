@@ -1,0 +1,7 @@
+{
+  "checkpoint": "/scratch/sarin.s/tinylm/runs/phase_v2_E3_distill_mix_full/checkpoints/step_06999.pt",
+  "shard_dir": "/scratch/sarin.s/tinylm/data_v3/heldout_math",
+  "n_tokens": 9993454,
+  "mean_nll_nats": 1.8611339614207618,
+  "perplexity": 6.431025172707004
+}

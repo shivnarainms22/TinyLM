@@ -46,3 +46,54 @@ def test_e2_build_job_runs_mixture_builder():
     assert "build_mixture_shards.py" in body
     assert "mixed_web_code_math" in body
     assert "--max-shards 21" in body
+
+
+# ---------------------------------------------------------------------------
+# v3 job scripts
+#
+# sbatch exports the submitting shell's environment by default. Submitting from
+# a shell with another project's PYTHONHOME/PYTHONPATH set made the tinylm
+# interpreter unable to locate its own stdlib:
+#   LookupError: no codec search functions registered: can't find encoding
+# Every eval in the job died on startup, and because each was guarded with
+# `|| echo WARNING ... continuing`, the job still exited 0 and SLURM reported
+# success while writing no results at all.
+# ---------------------------------------------------------------------------
+
+V3_JOBS = [
+    ROOT / "scripts" / "eval_v3_fewshot_job.sh",
+    ROOT / "scripts" / "eval_v3_ppl_job.sh",
+    ROOT / "scripts" / "eval_v3_sft_job.sh",
+    ROOT / "scripts" / "sft_smoltalk_job.sh",
+]
+
+
+def test_v3_jobs_sanitize_inherited_interpreter_env():
+    """Each v3 job must clear PYTHONHOME/PYTHONPATH inherited from the
+    submitting shell before running python."""
+    for job in V3_JOBS:
+        body = _read(job)
+        assert "unset PYTHONHOME PYTHONPATH" in body, f"{job.name} does not sanitize the env"
+        assert body.index("unset PYTHONHOME PYTHONPATH") < body.index("python "), (
+            f"{job.name} sanitizes the env after invoking python"
+        )
+
+
+def test_setup_hpc_rebuilds_a_broken_env_instead_of_skipping_it():
+    """`conda env list` showing 'tinylm' does not mean the env works: ~/.conda
+    lives on /scratch, and a purge reaped the stdlib .py sources (leaving
+    __pycache__), so python died at startup. Setup must verify the interpreter
+    runs and recreate the env if it does not."""
+    body = _read(ROOT / "scripts" / "setup_hpc.sh")
+    assert "conda run -n tinylm python" in body, "setup does not health-check the interpreter"
+    assert "conda env remove -n tinylm" in body, "setup cannot recreate a broken env"
+
+
+def test_v3_multi_eval_jobs_fail_loudly_when_every_eval_fails():
+    """The per-eval `|| ... continuing` guard must not let a job that produced
+    nothing exit 0 — the job has to propagate a failure to SLURM."""
+    for job in (ROOT / "scripts" / "eval_v3_fewshot_job.sh",
+                ROOT / "scripts" / "eval_v3_ppl_job.sh"):
+        body = _read(job)
+        assert "FAILURES=" in body, f"{job.name} does not track failures"
+        assert "exit 1" in body, f"{job.name} cannot report failure to SLURM"

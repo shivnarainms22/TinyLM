@@ -124,6 +124,40 @@ Raw eval JSONs: `results/v2/run_E{1,2,3}_eval.json`, `results/v2/run_E3full_step
 
 ---
 
+## v3 — Post-Training & Diagnostics (separate track)
+
+> Three follow-ups on top of the v2 models — reported separately, pinned
+> hypothesis unchanged. Each targets a different objection to the v2 negative result.
+
+**D1 — Is flat reasoning a zero-shot artifact?** Re-ran the locked suite at **5-shot**
+on Run D and E3-full. **No.** Every reasoning metric stays inside noise at 5-shot just
+as at 0-shot; only LAMBADA (the language-modeling channel) separates the models. The
+models *do* in-context-learn — ARC-Easy jumps **~+11 pts in both** — but that is
+answer-*format* learning, identical across recipes, i.e. a property of the 275M scale,
+not the data. Detail: `results/v3/fewshot_vs_0shot.md`.
+
+**D2 — De-blinding the code/math data.** The locked suite is blind to the ~30% of
+E3's mixture that is code/math. Held-out perplexity (~10M tokens each) reveals the
+data-quality gain the benchmarks couldn't see:
+
+| Held-out set | Run D (FWE-only) | E3-full (mix+distill) | Reduction |
+|:---|:---:|:---:|:---:|
+| code | 13.45 | **3.17** | **4.24× (−76%)** |
+| math | 12.92 | **6.43** | **2.01× (−50%)** |
+
+The v2 language-modeling lever was never small — the benchmarks were pointed the wrong
+way. Detail: `results/v3/codemath_diagnostic.md`.
+
+**D3 — SmolTalk SFT.** Instruction-tuned E3-full for one epoch (20k steps, ChatML,
+prompt-loss masking). On the locked suite the result is the expected **alignment tax**:
+language modeling preserved (LAMBADA ppl 23.20 → 22.97), commonsense flat, ARC-Easy
+−2.5 pts — the suite can't see instruction-following, only what SFT trades away. The
+model *does* follow instructions (real samples in `results/v3/sft_samples.md`) with
+275M-scale limits (weak arithmetic, factual slips, greedy repetition). Detail:
+`results/v3/sft_vs_base.md`; instruct model card `docs/hf_instruct_card.md`.
+
+---
+
 ## Results — v1 Run D (MLA + Muon, 1B×21 tokens, historical)
 
 > Preserved for contrast vs the HPC re-run above. The v1 effort trained on
@@ -178,3 +212,6 @@ contrast above.)
 - [x] HF model cards published — main, ablation checkpoints, v1 historical
 - [x] v2 — Data-quality continued-pretraining probes (E1/E2/E3, 2.1B tokens each)
 - [x] v2 — Full E3 distill-mix run (7.3B tokens) + milestone evals — LM gain, reasoning flat
+- [x] v3 — D1 few-shot (flat reasoning is not a 0-shot artifact)
+- [x] v3 — D2 code/math held-out perplexity (E3-full 4.2×/2.0× lower — de-blinds v2)
+- [x] v3 — D3 SmolTalk SFT + eval + qualitative samples + instruct card
