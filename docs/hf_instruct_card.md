@@ -15,6 +15,7 @@ tags:
   - chat
 datasets:
   - HuggingFaceTB/smoltalk
+base_model: Shiv-22/tinylm
 ---
 
 # TinyLM 275M — Instruct (SmolTalk SFT)
@@ -50,6 +51,36 @@ stays 32,000). Encode **without** a BOS token; the model closes its own turn wit
 An optional system turn may precede it: `<|system|>\n{system}\n`. Generation
 continues after the final `<|assistant|>\n` and stops at EOS. The repo's
 `scripts/generate_sft_samples.py` builds this priming string exactly.
+
+## Usage
+
+This is a **custom PyTorch model** (not a `transformers` architecture), so load it with
+the repo's code rather than `AutoModelForCausalLM`:
+
+```bash
+git clone https://github.com/shivnarainms22/TinyLM && cd TinyLM
+pip install torch transformers huggingface_hub
+```
+
+```python
+from huggingface_hub import hf_hub_download
+from transformers import AutoTokenizer
+import sys; sys.path.insert(0, "src")
+from tinylm.loader import load_from_checkpoint
+from tinylm.sft import render_chat, _ROLE_PREFIX
+
+ckpt = hf_hub_download("Shiv-22/tinylm-instruct", "tinylm_sft_smoltalk.pt")
+model = load_from_checkpoint(ckpt, device="cpu").eval()
+
+tok = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+enc = lambda s: tok.encode(s, add_special_tokens=False)  # no BOS
+ids, _ = render_chat([{"role": "user", "content": "Explain photosynthesis simply."}],
+                     enc, tok.eos_token_id)
+ids += enc(_ROLE_PREFIX["assistant"])   # prime the assistant turn
+# ... greedy-decode from `ids`, stop at eos — see scripts/generate_sft_samples.py
+```
+
+`scripts/generate_sft_samples.py --checkpoint <path>` does exactly this end to end.
 
 ## Training
 
