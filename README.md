@@ -156,6 +156,9 @@ model *does* follow instructions (real samples in `results/v3/sft_samples.md`) w
 275M-scale limits (weak arithmetic, factual slips, greedy repetition). Detail:
 `results/v3/sft_vs_base.md`; instruct model card `docs/hf_instruct_card.md`.
 
+Instruct model on HuggingFace: [`Shiv-22/tinylm-instruct`](https://huggingface.co/Shiv-22/tinylm-instruct)
+(weights + card + usage snippet).
+
 ---
 
 ## Results — v1 Run D (MLA + Muon, 1B×21 tokens, historical)
