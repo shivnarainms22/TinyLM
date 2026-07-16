@@ -12,8 +12,37 @@ import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from tinylm.kd import kd_loss  # noqa: E402
+from tinylm.kd import (  # noqa: E402
+    KDConfig,
+    kd_loss,
+    load_kd_config,
+    make_kd_loss_fn,
+)
 from tinylm.losses import chunked_cross_entropy  # noqa: E402
+
+
+class _StubTeacher:
+    """Duck-typed teacher for tests — no network, no 1.1B download."""
+
+    def __init__(self, topk: int, vocab: int):
+        self.topk, self.vocab = topk, vocab
+
+    def topk_logits(self, tokens):
+        B, T = tokens.shape
+        vals = torch.randn(B, T, self.topk)
+        idx = torch.randint(0, self.vocab, (B, T, self.topk))
+        return vals, idx
+
+
+def _tiny_model_and_cfg(vocab=64):
+    from tinylm.model import ModelConfig, TinyLM
+    from tinylm.train import TrainConfig
+
+    model = TinyLM(ModelConfig(
+        n_layers=2, d_model=32, n_heads=4, d_latent=16, d_rope=8,
+        ffn_hidden=64, ctx=16, vocab_size=vocab,
+    ))
+    return model, TrainConfig(vocab_size=vocab)
 
 
 def test_kl_term_is_zero_when_student_matches_teacher():
@@ -98,3 +127,29 @@ def test_fully_masked_batch_is_finite():
 
     loss = kd_loss(student, vals, idx, targets, alpha=0.5, temperature=2.0)
     assert torch.isfinite(loss).item()
+
+
+def test_kd_loss_fn_runs_and_backprops_through_student_only():
+    model, cfg = _tiny_model_and_cfg(vocab=64)
+    fn = make_kd_loss_fn(_StubTeacher(topk=4, vocab=64), alpha=0.5,
+                         temperature=2.0, topk=4)
+    tokens = torch.randint(0, 64, (2, 9))          # (B, T); inp = tokens[:, :-1]
+
+    loss = fn(model, tokens, cfg)
+    assert loss.isfinite().item()
+    loss.backward()
+    assert any(p.grad is not None for p in model.parameters())
+
+
+def test_load_kd_config_reads_hyperparams_and_ignores_train_keys(tmp_path):
+    import yaml
+    p = tmp_path / "kd.yaml"
+    p.write_text(yaml.safe_dump({
+        "kd_alpha": 0.7, "kd_temperature": 3.0, "kd_topk": 32,
+        "teacher_model": "some/teacher",
+        "lr_muon": 0.006, "batch_size": 8,        # TrainConfig keys — must be ignored
+    }))
+    cfg = load_kd_config(str(p))
+    assert isinstance(cfg, KDConfig)
+    assert (cfg.kd_alpha, cfg.kd_temperature, cfg.kd_topk) == (0.7, 3.0, 32)
+    assert cfg.teacher_model == "some/teacher"
