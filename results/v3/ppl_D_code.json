@@ -1,0 +1,7 @@
+{
+  "checkpoint": "/scratch/sarin.s/tinylm/runs/run_D_mla_muon_v2/checkpoints/step_22999.pt",
+  "shard_dir": "/scratch/sarin.s/tinylm/data_v3/heldout_code",
+  "n_tokens": 9993454,
+  "mean_nll_nats": 2.5990738842333694,
+  "perplexity": 13.451274827007202
+}
