@@ -30,6 +30,17 @@ with a ChatML-style template and prompt-loss masking.
   (see [`results/v2/E3full_vs_runD.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/v2/E3full_vs_runD.md))
 - **SFT details & eval:** [`results/v3/sft_vs_base.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/v3/sft_vs_base.md)
 
+## TinyLM model family
+
+| Repo | What it is |
+|---|---|
+| [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm) | **Base 275M** — Run D (MLA + Muon), ablation winner; the model for downstream use |
+| [`Shiv-22/tinylm-instruct`](https://huggingface.co/Shiv-22/tinylm-instruct) **← this repo** | **Instruct** — the base SmolTalk-SFT'd for chat (ChatML) |
+| [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2) | **All 4 ablation arms** (A/B/C/D) from the HPC re-run |
+| [`Shiv-22/tinylm-checkpoints`](https://huggingface.co/Shiv-22/tinylm-checkpoints) | **v1 historical** checkpoint (1B×21 tokens, pre data-fix) |
+
+Source & full results: [github.com/shivnarainms22/TinyLM](https://github.com/shivnarainms22/TinyLM)
+
 > **Scope.** This is a 275M research model, part of a training-methods portfolio.
 > It follows instructions and holds a chat format, but it is **not** a reliable
 > assistant — expect factual slips, weak multi-step reasoning, and occasional

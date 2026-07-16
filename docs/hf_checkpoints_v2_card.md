@@ -19,6 +19,17 @@ on **8B unique** FineWeb-Edu tokens (~3 epochs, ~24B processed).
 
 **For the model card, full eval results, and recommended usage → [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm)** (Run D — the best-performing arm).
 
+## TinyLM model family
+
+| Repo | What it is |
+|---|---|
+| [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm) | **Base 275M** — Run D (MLA + Muon), ablation winner; the model for downstream use |
+| [`Shiv-22/tinylm-instruct`](https://huggingface.co/Shiv-22/tinylm-instruct) | **Instruct** — the base SmolTalk-SFT'd for chat (ChatML) |
+| [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2) **← this repo** | **All 4 ablation arms** (A/B/C/D) from the HPC re-run |
+| [`Shiv-22/tinylm-checkpoints`](https://huggingface.co/Shiv-22/tinylm-checkpoints) | **v1 historical** checkpoint (1B×21 tokens, pre data-fix) |
+
+Source & full results: [github.com/shivnarainms22/TinyLM](https://github.com/shivnarainms22/TinyLM)
+
 ## Ablation matrix
 
 | Arm | Attention | Optimizer | File | Headline avg |
