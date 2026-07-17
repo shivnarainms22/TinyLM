@@ -20,8 +20,9 @@ tie_weights: true
 init_from: null
 resume_from: null
 
-# Same fresh FineWeb-Edu shards E1 used (overridable via TINYLM_SHARD_DIR).
-shard_dir: data/v2/fwe_fresh_shards
+# Same fresh FineWeb-Edu shards E1 used — tokenize_v2_e1_job.sh writes
+# /scratch/$USER/tinylm/data_v2/fwe_fresh (overridable via TINYLM_SHARD_DIR).
+shard_dir: data/v2/fwe_fresh
 # Halved micro-batch vs E1 (16) to leave room for the online 1.1B teacher forward;
 # grad_accum doubled so the effective batch (512 seq) and 2.1B-token budget match E1.
 batch_size: 8
