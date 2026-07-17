@@ -62,6 +62,18 @@ python -m "${TINYLM_MODULE:-tinylm.train}" "${REPO}/${CONFIG}" &
 TRAIN_PID=$!
 trap 'echo "[job] wall approaching — forwarding SIGTERM to train pid ${TRAIN_PID}"; kill -TERM "${TRAIN_PID}" 2>/dev/null || true' TERM
 # wait is interrupted when the trap fires; loop until the child truly exits so we
-# never tear the job down mid-checkpoint-write.
-while kill -0 "${TRAIN_PID}" 2>/dev/null; do wait "${TRAIN_PID}" || true; done
-echo "=== ${RUN_NAME} job ${SLURM_JOB_ID} done $(date) ==="
+# never tear the job down mid-checkpoint-write. Capture the child's real exit code.
+TRAIN_RC=0
+wait "${TRAIN_PID}" || TRAIN_RC=$?
+while kill -0 "${TRAIN_PID}" 2>/dev/null; do wait "${TRAIN_PID}" || TRAIN_RC=$?; done
+
+# Break the rechain loop on a persistent startup failure: if python died non-zero
+# AND this segment saved no checkpoint (no progress), the pre-queued next segment
+# would just crash the same way forever (a bad path / OOM fast-fails in <2min and
+# afterany keeps firing). Cancel it and surface the failure to SLURM.
+if [[ "${TRAIN_RC}" -ne 0 && ! -f "${CKPT}" ]]; then
+    echo "[job] training exited ${TRAIN_RC} with no checkpoint — cancelling queued segment ${NEXT} to stop a crash loop."
+    scancel "${NEXT}" 2>/dev/null || true
+    exit "${TRAIN_RC}"
+fi
+echo "=== ${RUN_NAME} job ${SLURM_JOB_ID} done (rc=${TRAIN_RC}) $(date) ==="

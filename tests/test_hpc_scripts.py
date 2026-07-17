@@ -33,6 +33,15 @@ def test_hpc_job_guards_the_scratch_purge_codec_failure():
     assert "unset PYTHONHOME PYTHONPATH" in _read(HPC_JOB)
 
 
+def test_hpc_job_breaks_the_rechain_loop_on_startup_crash():
+    """A fast-failing run (bad path / OOM) that saves no checkpoint must cancel
+    the pre-queued next segment instead of afterany-looping forever."""
+    body = _read(HPC_JOB)
+    assert "TRAIN_RC" in body                              # real exit code captured
+    assert 'if [[ "${TRAIN_RC}" -ne 0 && ! -f "${CKPT}" ]]' in body
+    assert 'scancel "${NEXT}"' in body
+
+
 def test_submit_kd_points_the_shared_job_at_the_kd_module():
     body = _read(ROOT / "scripts" / "submit_kd.sh")
     assert 'export TINYLM_MODULE="tinylm.kd"' in body
