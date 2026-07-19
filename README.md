@@ -175,6 +175,44 @@ Instruct model on HuggingFace: [`Shiv-22/tinylm-instruct`](https://huggingface.c
 
 ---
 
+## v4 — Logit Knowledge Distillation (separate track)
+
+> The last escape hatch on the v2/v3 negative result — reported separately,
+> pinned hypothesis unchanged.
+
+**Question:** v2 showed better *data* can't move reasoning at 275M. Can a better
+**teacher**? This distills **TinyLlama-1.1B** (4× larger — and this project's own
+baseline) into Run D at the logit level: `α = 0.5` mix of top-64 forward-KL (T = 2)
+and ground-truth CE.
+
+**The design is a single-variable contrast against E1.** Identical init, identical
+fresh FineWeb-Edu shards, identical 2.1B-token budget and LR — **only the loss
+differs**. E1 (plain CE) was a clean no-op, so anything that moves is the KD signal.
+
+| Metric | Run D | E1 (CE control) | **v4 KD** | Δ vs D | Past noise? |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| HellaSwag acc_norm | 0.4123 | 0.4105 | **0.4070** | −0.0053 | ❌ flat |
+| ARC-Easy acc_norm | 0.5122 | 0.5114 | **0.4924** | −0.0198 | ⚠️ ~1.4σ down |
+| Winogrande acc | 0.5130 | 0.5201 | **0.5146** | +0.0016 | ❌ flat |
+| LAMBADA perplexity ↓ | 26.54 | 26.89 | **28.85** | **+2.30 worse** | ⚠️ ~1.7σ worse |
+
+**Finding: no reasoning transfer, and a real cost to language modeling.** Not one
+reasoning metric improved; LAMBADA perplexity moved ~2 points the *wrong* way against
+its own CE control. Because E1 held perplexity flat on the same tokens, the regression
+is attributable to the distillation objective, not the data or the continuation recipe.
+
+This closes the arc: **three independent levers — data volume (E1), data
+quality/composition (E2/E3), and teacher supervision (v4) — all fail to move commonsense
+MCQ, while all three move language modeling.** Reasoning at 275M is capacity-bound, now
+on convergent evidence from three different intervention types rather than one run.
+Caveat kept explicit: this is *one* KD recipe (forward-KL, α = 0.5, top-k = 64, 2.1B
+tokens), not a distillation sweep.
+
+Detail, mechanism and full caveats: `results/v4/KD_vs_E1.md`.
+Raw eval JSON: `results/v4/run_KD_eval.json`.
+
+---
+
 ## Results — v1 Run D (MLA + Muon, 1B×21 tokens, historical)
 
 > Preserved for contrast vs the HPC re-run above. The v1 effort trained on
@@ -236,4 +274,5 @@ contrast above.)
 - [x] v3 — D1 few-shot (flat reasoning is not a 0-shot artifact)
 - [x] v3 — D2 code/math held-out perplexity (E3-full 4.2×/2.0× lower — de-blinds v2)
 - [x] v3 — D3 SmolTalk SFT + eval + qualitative samples + instruct card
+- [x] v4 — Logit-KD probe from TinyLlama-1.1B + eval — no reasoning transfer, LM cost (`results/v4/KD_vs_E1.md`)
 - [x] Hypothesis closed — benchmark parity (Run D) **and** KV-cache reduction (MLA 3.56×, `results/kv_cache_reduction.md`)
