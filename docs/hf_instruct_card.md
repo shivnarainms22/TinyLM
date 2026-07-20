@@ -104,6 +104,11 @@ ids += enc(_ROLE_PREFIX["assistant"])   # prime the assistant turn
 | LR | cosine 2e-5 → 2e-6, 3% warmup |
 | Hardware | 1× A100, 5h48m, final train loss ~1.1 |
 
+**Training logs:** SFT loss curve on Weights & Biases —
+[`tinylm-v3`](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v3).
+The base model's continued-pretraining runs are in
+[`tinylm-v2`](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v2).
+
 ## Evaluation — the alignment tax
 
 Instruction-tuning is evaluated honestly for its **cost** on the locked

@@ -199,6 +199,12 @@ it pay for the attempt.
 | v3 | Is that negative result an artifact? | `results/v3/*.md` |
 | v4 | Can a better teacher fix reasoning? | `results/v4/KD_vs_E1.md` |
 
+**Training logs (W&B):**
+[v1 ablation](https://wandb.ai/shivnarainms22-northeastern-university/tinylm) ·
+[v2 probes](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v2) ·
+[v3 SFT](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v3) ·
+[v4 KD](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v4)
+
 **Models:** [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm) (Run D base) ·
 [`Shiv-22/tinylm-instruct`](https://huggingface.co/Shiv-22/tinylm-instruct) (SFT) ·
 [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2) (all 4 ablation arms)

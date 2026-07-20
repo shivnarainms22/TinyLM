@@ -82,6 +82,10 @@ Verified by `test_kv_cache_shape_incremental`; derivation in
 
 Pure FineWeb-Edu throughout (no annealing mix, no instruction tuning).
 
+**Training logs:** loss curves and throughput for this run (and all four ablation arms) are
+public on Weights & Biases — [`tinylm`](https://wandb.ai/shivnarainms22-northeastern-university/tinylm)
+(this model is `run_D_mla_muon_v2`).
+
 ## Evaluation
 
 0-shot eval via [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). HellaSwag and ARC-Easy reported as `acc_norm` (length-normalized accuracy); LAMBADA and Winogrande as `acc`.

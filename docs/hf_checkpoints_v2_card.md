@@ -45,6 +45,10 @@ dimensions, tokenizer — are identical.
 
 **Full breakdown:** https://github.com/shivnarainms22/TinyLM/blob/main/results/hpc_rerun_ablation.md
 
+**Training logs:** all four arms are logged side by side on Weights & Biases —
+[`tinylm`](https://wandb.ai/shivnarainms22-northeastern-university/tinylm)
+(`run_A_mha_adamw`, `run_B_mla_adamw`, `run_C_mha_muon`, `run_D_mla_muon_v2`).
+
 ## Loading a specific arm
 
 ```python

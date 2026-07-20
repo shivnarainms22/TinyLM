@@ -12,6 +12,12 @@ fixing looped training data +4.0), and three independent attempts to improve *re
 more data, better data, and distillation from a 4× teacher — all failed identically while all
 three improved language modeling. **At 275M, reasoning is capacity-bound.**
 
+**Training logs (Weights & Biases)** — loss curves, LR schedules and throughput for every run:
+[v1 ablation A/B/C/D](https://wandb.ai/shivnarainms22-northeastern-university/tinylm) ·
+[v2 data probes](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v2) ·
+[v3 SFT](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v3) ·
+[v4 KD](https://wandb.ai/shivnarainms22-northeastern-university/tinylm-v4)
+
 Reference plan: `250M_SLM_Implementation_Plan_revised.pdf` (repo root).
 
 ---
