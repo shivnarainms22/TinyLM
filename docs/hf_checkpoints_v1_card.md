@@ -19,6 +19,7 @@ over 20k steps — the data bug the HPC re-run later fixed.
 - **Recommended model:** [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm) (Run D from the HPC re-run, 8B unique tokens, +3.97 avg pts above this v1 on the same architecture)
 - **Full 4-arm ablation checkpoints:** [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2)
 - **Source code:** [github.com/shivnarainms22/TinyLM](https://github.com/shivnarainms22/TinyLM)
+- **📄 What the project found (all four tracks, one page):** [`results/FINDINGS.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/FINDINGS.md)
 
 ## TinyLM model family
 

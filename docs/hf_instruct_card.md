@@ -29,6 +29,7 @@ with a ChatML-style template and prompt-loss masking.
 - **Base model:** the E3-full checkpoint from the v2 continued-pretraining track
   (see [`results/v2/E3full_vs_runD.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/v2/E3full_vs_runD.md))
 - **SFT details & eval:** [`results/v3/sft_vs_base.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/v3/sft_vs_base.md)
+- **📄 What the project found (all four tracks, one page):** [`results/FINDINGS.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/FINDINGS.md)
 
 ## TinyLM model family
 

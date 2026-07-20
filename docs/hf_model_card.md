@@ -23,6 +23,7 @@ optimizer**, on **8B unique tokens** of FineWeb-Edu. Benchmarked against
 TinyLlama-1.1B as part of a 4-arm architecture ablation.
 
 - **Source code:** https://github.com/shivnarainms22/TinyLM
+- **📄 What the project found (all four research tracks, one page):** [`results/FINDINGS.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/FINDINGS.md)
 - **Full ablation results:** see [`results/hpc_rerun_ablation.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/hpc_rerun_ablation.md) in the repo
 - **All four ablation checkpoints:** [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2)
 
@@ -180,9 +181,19 @@ print(tok.decode(prompt_ids[0]))
 - **v1** (2026-05, RunPod A100-80GB): single MLA+Muon training run on 1B unique tokens repeated ~21×. Established the training pipeline but the data looping hurt long-range coherence (LAMBADA acc 29.2%). v1 weights preserved at [`Shiv-22/tinylm-checkpoints`](https://huggingface.co/Shiv-22/tinylm-checkpoints) for contrast.
 - **HPC re-run** (2026-05, Northeastern Explorer A100-40GB): full 4-arm ablation on 8B unique tokens. The weights in this repo are from the **Run D** arm of that re-run.
 
+- **v2** (2026-06/07): continued-pretraining probes off this model testing whether *better data* improves it — fresh tokens, a web/code/math mixture, and a distilled-text recipe scaled to 7.3B tokens. Language modeling improved substantially (LAMBADA ppl 26.54 → 23.20); commonsense reasoning did not move.
+- **v3** (2026-07): diagnostics on that negative result (few-shot, held-out code/math perplexity — **4.2× / 2.0×** lower, invisible to the benchmark suite) plus a SmolTalk SFT, published as [`Shiv-22/tinylm-instruct`](https://huggingface.co/Shiv-22/tinylm-instruct).
+- **v4** (2026-07): logit knowledge distillation from TinyLlama-1.1B into this model, as a controlled contrast against a cross-entropy control. No reasoning transfer, and language modeling got *worse* (ppl 26.54 → 28.85).
+
 Re-running the same MLA+Muon arm with the data fix (1B×21 → 8B unique) was
 worth **+3.97 pts** average — roughly 2.6× the architecture-and-optimizer
 ablation gain. Data quality dominates architecture at this scale.
+
+**The project's headline finding:** across three independent interventions — more data,
+better data, and distillation from a 4× larger teacher — commonsense reasoning never moved,
+while every one of them improved language modeling. At 275M, reasoning appears to be
+**capacity-bound**. Full evidence and limits in
+[`results/FINDINGS.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/FINDINGS.md).
 
 ## Citation
 
