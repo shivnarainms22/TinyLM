@@ -12,7 +12,7 @@ import math
 import os
 import time
 from dataclasses import dataclass, fields
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 import torch.nn.functional as F
@@ -88,15 +88,20 @@ class TrainConfig:
     compile: bool = False
 
 
-def load_config(path: str) -> TrainConfig:
-    """Load YAML config and raise ValueError on unknown keys."""
+def load_config(path: str, allowed_extra: Optional[set] = None) -> TrainConfig:
+    """Load YAML config and raise ValueError on unknown keys.
+
+    `allowed_extra` names keys that may appear in the file but are not TrainConfig
+    fields (e.g. the KD probe stores its hyperparameters in the same YAML); they
+    are tolerated here and ignored, while genuine typos still raise.
+    """
     with open(path) as f:
         d = yaml.safe_load(f)
     valid = {f.name for f in fields(TrainConfig)}
-    unknown = set(d.keys()) - valid
+    unknown = set(d.keys()) - valid - (allowed_extra or set())
     if unknown:
         raise ValueError(f"Unknown config keys: {sorted(unknown)}")
-    return TrainConfig(**d)
+    return TrainConfig(**{k: v for k, v in d.items() if k in valid})
 
 
 def apply_env_overrides(cfg: TrainConfig) -> TrainConfig:
@@ -215,30 +220,44 @@ def prune_checkpoints(ckpt_dir: str, keep: int) -> None:
             pass
 
 
+# Loss hook signature: (model, tokens, cfg) -> scalar loss tensor. The default is
+# next-token cross-entropy; the v4 KD track passes a distillation closure instead.
+LossFn = Callable[[torch.nn.Module, torch.Tensor, "TrainConfig"], torch.Tensor]
+
+
+def default_ce_loss(
+    model: torch.nn.Module, tokens: torch.Tensor, cfg: "TrainConfig"
+) -> torch.Tensor:
+    """Next-token cross-entropy — the standard pretraining objective."""
+    logits = model(tokens[:, :-1])
+    return chunked_cross_entropy(
+        logits.reshape(-1, cfg.vocab_size),
+        tokens[:, 1:].reshape(-1),
+    )
+
+
 def train_step(
     model: torch.nn.Module,
     tokens: torch.Tensor,
     optimizers: list,
     cfg: TrainConfig,
     step: int,
+    loss_fn: Optional[LossFn] = None,
 ) -> tuple[float, float]:
     """One training step. Returns (loss, grad_norm).
 
     Updates LR, runs forward/backward, clips gradients, steps every optimizer
     in `optimizers` (list of (optimizer, lr_max) pairs from build_optimizers()).
-    Does NOT log to WandB — train() handles that.
+    `loss_fn` defaults to next-token cross-entropy. Does NOT log to WandB.
     """
+    compute_loss = loss_fn or default_ce_loss
     for opt, lr_max in optimizers:
         lr = cosine_lr(step, cfg.warmup_steps, cfg.total_steps, lr_max)
         for pg in opt.param_groups:
             pg["lr"] = lr
         opt.zero_grad(set_to_none=True)
 
-    logits = model(tokens[:, :-1])
-    loss = chunked_cross_entropy(
-        logits.reshape(-1, cfg.vocab_size),
-        tokens[:, 1:].reshape(-1),
-    )
+    loss = compute_loss(model, tokens, cfg)
 
     if not loss.isfinite():
         raise RuntimeError(
@@ -253,9 +272,15 @@ def train_step(
     return loss.item(), grad_norm.item()
 
 
-def train(cfg: TrainConfig) -> None:
-    """Full training loop with WandB logging and checkpointing."""
+def train(cfg: TrainConfig, loss_fn: Optional[LossFn] = None) -> None:
+    """Full training loop with WandB logging and checkpointing.
+
+    `loss_fn` defaults to next-token cross-entropy (the locked pretraining/ablation
+    behavior). The v4 KD track passes a distillation closure — everything else
+    (Muon+AdamW, cosine schedule, shard loader, checkpoint/SIGTERM/rechain) is shared.
+    """
     import wandb  # lazy import — tests never call train()
+    compute_loss = loss_fn or default_ce_loss
 
     torch.set_float32_matmul_precision("high")  # enable TF32 tensor cores on A100
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -321,11 +346,7 @@ def train(cfg: TrainConfig) -> None:
         for _ in range(cfg.grad_accum_steps):
             tokens = loader.next_batch().to(device, non_blocking=True)
             with torch.amp.autocast("cuda", dtype=torch.bfloat16, enabled=cfg.use_bf16 and device == "cuda"):
-                logits = model(tokens[:, :-1])
-                loss = chunked_cross_entropy(
-                    logits.reshape(-1, cfg.vocab_size),
-                    tokens[:, 1:].reshape(-1),
-                ) / cfg.grad_accum_steps
+                loss = compute_loss(model, tokens, cfg) / cfg.grad_accum_steps
             loss.backward()
             loss_accum += loss.detach()
 

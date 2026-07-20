@@ -1,0 +1,55 @@
+# TinyLM v4: logit-KD probe. Identical to the E1 fresh-FineWeb-Edu continuation
+# EXCEPT the loss is knowledge distillation from TinyLlama-1.1B instead of plain
+# cross-entropy. This isolates the KD signal against E1's clean no-op.
+run_name: phase_v4_KD_tinyllama_fwe
+attention: mla
+optimizer: muon
+
+# Same 275M Run D architecture.
+n_layers: 18
+d_model: 1024
+n_heads: 16
+d_latent: 512
+d_rope: 64
+ffn_hidden: 2816
+ctx: 2048
+vocab_size: 32000
+tie_weights: true
+
+# Set by submit_kd.sh arg 4 / TINYLM_INIT_FROM (Run D step_22999).
+init_from: null
+resume_from: null
+
+# Same fresh FineWeb-Edu shards E1 used — tokenize_v2_e1_job.sh writes
+# /scratch/$USER/tinylm/data_v2/fwe_fresh (overridable via TINYLM_SHARD_DIR).
+shard_dir: data/v2/fwe_fresh
+# Halved micro-batch vs E1 (16) to leave room for the online 1.1B teacher forward;
+# grad_accum doubled so the effective batch (512 seq) and 2.1B-token budget match E1.
+batch_size: 8
+grad_accum_steps: 64
+seq_len: 2048
+
+# ~2.1B processed tokens: 2000 * 512 * 2048 — same budget as E1/E2/E3.
+total_steps: 2000
+warmup_steps: 200
+
+# Continued pretraining LR — identical to every v2 probe.
+lr_muon: 0.006
+lr_adamw: 0.0003
+weight_decay: 0.1
+grad_clip: 1.0
+
+log_every: 10
+save_every: 250          # reachable inside an 8h segment at KD's ~halved throughput
+keep_checkpoints: 4
+wandb_project: tinylm-v4
+
+compile: true
+use_bf16: true
+grad_checkpoint: true    # recompute activations — 40GB-safe with the teacher resident
+
+# --- KD hyperparameters (read by tinylm.kd.load_kd_config) ---
+teacher_model: TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+kd_alpha: 0.5            # 0 = pure CE, 1 = pure distillation
+kd_temperature: 2.0
+kd_topk: 64             # distill the teacher's top-64 per token (memory-safe)

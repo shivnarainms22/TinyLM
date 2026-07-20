@@ -20,8 +20,13 @@ mkdir -p "${RUN_DIR}/checkpoints" "${LOG_DIR}"
 module load anaconda3/2024.06 cuda/12.8.0
 source "$(conda info --base)/etc/profile.d/conda.sh"; conda activate tinylm
 export PATH="${HOME}/.conda/envs/tinylm/bin:${PATH}"
+# Guard the scratch-purge codec failure (a leftover PYTHONHOME/PYTHONPATH points
+# the interpreter at the wrong stdlib -> "no codec search functions registered").
+unset PYTHONHOME PYTHONPATH
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export WANDB_DIR="${SCRATCH}/wandb"
+# KD downloads a ~2GB teacher; cache it on scratch, not the quota'd $HOME.
+export HF_HOME="${HF_HOME:-${SCRATCH}/hf_cache}"
 export TINYLM_SHARD_DIR="${SHARD_DIR:-${SCRATCH}/tinylm/data}"
 if [[ -n "${INIT_FROM:-}" ]]; then
     export TINYLM_INIT_FROM="${INIT_FROM}"
@@ -50,10 +55,25 @@ cd "${RUN_DIR}"   # checkpoints/ is written here, relative to cwd
 # signal so python's handler checkpoints last.pt at the next step boundary; the
 # next segment then resumes from the true last step instead of redoing the steps
 # since the last periodic save. (save_every still guarantees a checkpoint floor.)
-python -m tinylm.train "${REPO}/${CONFIG}" &
+# Entry module is configurable so the same rechain/SIGTERM machinery drives both
+# plain pretraining (tinylm.train) and the v4 KD probe (tinylm.kd). Defaults to
+# tinylm.train, so every existing run is byte-identical.
+python -m "${TINYLM_MODULE:-tinylm.train}" "${REPO}/${CONFIG}" &
 TRAIN_PID=$!
 trap 'echo "[job] wall approaching — forwarding SIGTERM to train pid ${TRAIN_PID}"; kill -TERM "${TRAIN_PID}" 2>/dev/null || true' TERM
 # wait is interrupted when the trap fires; loop until the child truly exits so we
-# never tear the job down mid-checkpoint-write.
-while kill -0 "${TRAIN_PID}" 2>/dev/null; do wait "${TRAIN_PID}" || true; done
-echo "=== ${RUN_NAME} job ${SLURM_JOB_ID} done $(date) ==="
+# never tear the job down mid-checkpoint-write. Capture the child's real exit code.
+TRAIN_RC=0
+wait "${TRAIN_PID}" || TRAIN_RC=$?
+while kill -0 "${TRAIN_PID}" 2>/dev/null; do wait "${TRAIN_PID}" || TRAIN_RC=$?; done
+
+# Break the rechain loop on a persistent startup failure: if python died non-zero
+# AND this segment saved no checkpoint (no progress), the pre-queued next segment
+# would just crash the same way forever (a bad path / OOM fast-fails in <2min and
+# afterany keeps firing). Cancel it and surface the failure to SLURM.
+if [[ "${TRAIN_RC}" -ne 0 && ! -f "${CKPT}" ]]; then
+    echo "[job] training exited ${TRAIN_RC} with no checkpoint — cancelling queued segment ${NEXT} to stop a crash loop."
+    scancel "${NEXT}" 2>/dev/null || true
+    exit "${TRAIN_RC}"
+fi
+echo "=== ${RUN_NAME} job ${SLURM_JOB_ID} done (rc=${TRAIN_RC}) $(date) ==="
