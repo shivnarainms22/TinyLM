@@ -6,6 +6,12 @@ benchmarked against TinyLlama-1.1B.
 
 **Model on HuggingFace:** [Shiv-22/tinylm](https://huggingface.co/Shiv-22/tinylm)
 
+**📄 Start here: [`results/FINDINGS.md`](results/FINDINGS.md)** — what this project found, all
+four tracks on one page. Short version: the architecture work succeeded (MLA + Muon +1.5 avg;
+fixing looped training data +4.0), and three independent attempts to improve *reasoning* —
+more data, better data, and distillation from a 4× teacher — all failed identically while all
+three improved language modeling. **At 275M, reasoning is capacity-bound.**
+
 Reference plan: `250M_SLM_Implementation_Plan_revised.pdf` (repo root).
 
 ---
