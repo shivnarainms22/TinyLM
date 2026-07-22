@@ -70,7 +70,7 @@ system D).
 
 |  | AdamW | Muon | Δ (Muon − AdamW) |
 |:---|:---:|:---:|:---:|
-| **MHA** | A 43.62 | C 44.64 | **+1.02** |
+| **MHA** | A 43.62 | C 44.63 | **+1.02** |
 | **MLA** | B 44.11 | D 45.14 | **+1.03** |
 | **Δ (MLA − MHA)** | **+0.49** | **+0.50** | — |
 
@@ -87,7 +87,7 @@ the ~1% noise floor is not detectable.
 | ARC-Easy (acc_norm) | 51.85% | 50.08% | 51.05% | **51.22%** | 55.7% |
 | LAMBADA (acc) | 34.17% | 34.33% | 35.47% | **36.81%** | 58.9% |
 | Winogrande (acc) | 49.72% | 52.57% | 51.46% | **51.30%** | 58.9% |
-| **Average** | 43.62% | 44.11% | 44.64% | **45.14%** | 58.2% |
+| **Average** | 43.62% | 44.11% | 44.63% | **45.14%** | 58.2% |
 
 Average ordering is monotonic **A < B < C < D**. HellaSwag and LAMBADA give
 clean monotonic per-arm ordering with the largest signal-to-noise; ARC-Easy
@@ -263,7 +263,7 @@ Training run: [WandB](https://wandb.ai/shivnarainms22-northeastern-university/ti
 |---|---|---|---|:---:|:---:|
 | A | Standard MHA | AdamW | ✅ Complete | 43.62% | — |
 | B | MLA | AdamW | ✅ Complete | 44.11% | +0.49 |
-| C | Standard MHA | Muon | ✅ Complete | 44.64% | +1.02 |
+| C | Standard MHA | Muon | ✅ Complete | 44.63% | +1.02 |
 | D | MLA | Muon | ✅ Complete (pitch) | **45.14%** | **+1.52** |
 
 (v1 trained Run D only — 1B×21 tokens — and is preserved as the historical

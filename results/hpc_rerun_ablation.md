@@ -35,7 +35,7 @@ metric-matched to the baseline.
 | ARC-Easy (acc_norm)  | 51.85% | 50.08% | 51.05% | 51.22% | 55.7% |
 | LAMBADA (acc)        | 34.17% | 34.33% | 35.47% | 36.81% | 58.9% |
 | Winogrande (acc)     | 49.72% | 52.57% | 51.46% | 51.30% | 58.9% |
-| **Average**          | **43.62%** | **44.11%** | **44.64%** | **45.14%** | **58.2%** |
+| **Average**          | **43.62%** | **44.11%** | **44.63%** | **45.14%** | **58.2%** |
 
 (Run D was submitted on Explorer as `run_D_mla_muon_v2` — same ablation arm,
 just a relaunch naming artifact.)
@@ -48,7 +48,7 @@ just a relaunch naming artifact.)
 | ARC-Easy (acc_norm)  | 51.85% | 50.08% | 51.05% | 51.22% | 55.7% | −4.5 |
 | LAMBADA (acc)        | 34.17% | 34.33% | 35.47% | 36.81% | 58.9% | −22.1 |
 | Winogrande (acc)     | 49.72% | 52.57% | 51.46% | 51.30% | 58.9% | −7.6 |
-| **Average**          | 43.62% | 44.11% | 44.64% | 45.14% | 58.2% | **−13.1** |
+| **Average**          | 43.62% | 44.11% | 44.63% | 45.14% | 58.2% | **−13.1** |
 
 Average ordering: **A < B < C < D**, monotonic — each "upgrade" (MLA, Muon,
 both) adds something. D is the closest arm to the 1.1B baseline on average.
@@ -60,7 +60,7 @@ Raw `acc` for the normed tasks (secondary): A → HellaSwag 32.70%, ARC-Easy
 
 |  | AdamW | Muon | Δ (Muon − AdamW) |
 |:---|:---:|:---:|:---:|
-| **MHA** | A 43.62 | C 44.64 | **+1.02** |
+| **MHA** | A 43.62 | C 44.63 | **+1.02** |
 | **MLA** | B 44.11 | D 45.14 | **+1.03** |
 | **Δ (MLA − MHA)** | **+0.49** | **+0.50** | — |
 
@@ -80,7 +80,7 @@ below the noise floor can't be detected — only that there is no *large* one.
 | ARC-Easy (acc_norm)  | 51.85% | 51.05% | −0.80 (tie) |
 | LAMBADA (acc)        | 34.17% | 35.47% | +1.30 |
 | Winogrande (acc)     | 49.72% | 51.46% | +1.74 (both ≈ chance) |
-| **Average**          | 43.62% | 44.64% | **+1.02** |
+| **Average**          | 43.62% | 44.63% | **+1.02** |
 
 #### C → D: MLA vs MHA, Muon fixed (MLA effect with Muon)
 
@@ -90,7 +90,7 @@ below the noise floor can't be detected — only that there is no *large* one.
 | ARC-Easy (acc_norm)  | 51.05% | 51.22% | +0.17 (tie) |
 | LAMBADA (acc)        | 35.47% | 36.81% | +1.34 |
 | Winogrande (acc)     | 51.46% | 51.30% | −0.16 (tie) |
-| **Average**          | 44.64% | 45.14% | **+0.50** |
+| **Average**          | 44.63% | 45.14% | **+0.50** |
 
 #### A → D: Full system vs control (headline portfolio comparison)
 

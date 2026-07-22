@@ -41,7 +41,7 @@ Source & full results: [github.com/shivnarainms22/TinyLM](https://github.com/shi
 |-----|-----------|-----------|------|:---:|
 | A | Standard MHA | AdamW | `run_A/step_22999.pt` | 43.62% |
 | B | MLA | AdamW | `run_B/step_22999.pt` | 44.11% |
-| C | Standard MHA | Muon | `run_C/step_22999.pt` | 44.64% |
+| C | Standard MHA | Muon | `run_C/step_22999.pt` | 44.63% |
 | **D** | **MLA** | **Muon** | **`run_D/step_22999.pt`** | **45.14%** |
 
 All four arms differ only in attention class (MHA vs MLA) and matrix optimizer

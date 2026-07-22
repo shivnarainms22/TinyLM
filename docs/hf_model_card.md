@@ -108,7 +108,7 @@ training settings are identical.
 
 |  | AdamW | Muon | Δ (Muon − AdamW) |
 |:---|:---:|:---:|:---:|
-| **MHA** | Run A: 43.62% | Run C: 44.64% | +1.02 |
+| **MHA** | Run A: 43.62% | Run C: 44.63% | +1.02 |
 | **MLA** | Run B: 44.11% | **Run D: 45.14%** *(this model)* | +1.03 |
 | **Δ (MLA − MHA)** | +0.49 | +0.50 | — |
 
