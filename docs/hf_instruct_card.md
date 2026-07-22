@@ -15,7 +15,7 @@ tags:
   - chat
 datasets:
   - HuggingFaceTB/smoltalk
-base_model: Shiv-22/tinylm
+base_model: Shiv-22/tinylm-checkpoints-v2
 ---
 
 # TinyLM 275M — Instruct (SmolTalk SFT)
@@ -26,7 +26,10 @@ supervised-fine-tuned for one epoch on **[SmolTalk](https://huggingface.co/datas
 with a ChatML-style template and prompt-loss masking.
 
 - **Source code:** https://github.com/shivnarainms22/TinyLM
-- **Base model:** the E3-full checkpoint from the v2 continued-pretraining track
+- **Base model:** [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2) → **`e3_full/step_06999.pt`**
+  — the final E3-full checkpoint from the v2 continued-pretraining track. Note this is
+  *not* [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm) (Run D); E3-full is Run D
+  continued on a 7.34B-token distill mixture
   (see [`results/v2/E3full_vs_runD.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/v2/E3full_vs_runD.md))
 - **SFT details & eval:** [`results/v3/sft_vs_base.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/v3/sft_vs_base.md)
 - **📄 What the project found (all four tracks, one page):** [`results/FINDINGS.md`](https://github.com/shivnarainms22/TinyLM/blob/main/results/FINDINGS.md)
@@ -37,7 +40,7 @@ with a ChatML-style template and prompt-loss masking.
 |---|---|
 | [`Shiv-22/tinylm`](https://huggingface.co/Shiv-22/tinylm) | **Base 275M** — Run D (MLA + Muon), ablation winner; the model for downstream use |
 | [`Shiv-22/tinylm-instruct`](https://huggingface.co/Shiv-22/tinylm-instruct) **← this repo** | **Instruct** — the base SmolTalk-SFT'd for chat (ChatML) |
-| [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2) | **All 4 ablation arms** (A/B/C/D) from the HPC re-run |
+| [`Shiv-22/tinylm-checkpoints-v2`](https://huggingface.co/Shiv-22/tinylm-checkpoints-v2) | **All 4 ablation arms** (A/B/C/D) + the **E3-full** continued-pretraining checkpoints |
 | [`Shiv-22/tinylm-checkpoints`](https://huggingface.co/Shiv-22/tinylm-checkpoints) | **v1 historical** checkpoint (1B×21 tokens, pre data-fix) |
 
 Source & full results: [github.com/shivnarainms22/TinyLM](https://github.com/shivnarainms22/TinyLM)
